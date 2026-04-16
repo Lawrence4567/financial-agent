@@ -1,0 +1,35 @@
+{
+  "status": "client_case_ready",
+  "summary": "The market layer combines a curated ETF watchlist with portfolio commentary that helps explain how diversified household portfolios react to shifts in rates, equity leadership, and risk sentiment.",
+  "future_external_sources": [
+    "Yahoo Finance via yfinance for ETF and index history",
+    "Rate tables for high-interest savings and GIC comparisons",
+    "Macro calendar and central-bank commentary feeds for market explanation workflows"
+  ],
+  "watchlist": [
+    {
+      "symbol": "XIC",
+      "yahoo_symbol": "XIC.TO",
+      "label": "Canadian broad equity ETF",
+      "why_it_matters": "Represents domestic equity exposure in the household portfolio case."
+    },
+    {
+      "symbol": "VFV",
+      "yahoo_symbol": "VFV.TO",
+      "label": "U.S. equity ETF",
+      "why_it_matters": "Acts as the main growth sleeve and a major source of return variation."
+    },
+    {
+      "symbol": "ZAG",
+      "yahoo_symbol": "ZAG.TO",
+      "label": "Canadian aggregate bond ETF",
+      "why_it_matters": "Shows how the stabilising bond allocation is behaving alongside equities."
+    },
+    {
+      "symbol": "CASH",
+      "yahoo_symbol": "CASH.TO",
+      "label": "High-interest savings ETF",
+      "why_it_matters": "Represents the liquidity sleeve used for near-term goals and reserve planning."
+    }
+  ]
+}

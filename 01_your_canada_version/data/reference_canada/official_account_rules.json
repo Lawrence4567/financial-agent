@@ -1,0 +1,76 @@
+{
+  "rules": [
+    {
+      "id": "fhsa_opening_basics",
+      "title": "FHSA opening basics",
+      "category": "FHSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/first-home-savings-account/opening-your-fhsas.html",
+      "summary": "To open an FHSA, the individual must be a resident of Canada, be at least 18 years old or the age of majority in their province or territory, and be 71 or younger on December 31 of the year the account is opened.",
+      "details": [
+        "FHSA opening rules are tied to resident status and age conditions.",
+        "The age-of-majority contract rule can depend on the province or territory."
+      ]
+    },
+    {
+      "id": "fhsa_first_time_home_buyer_test",
+      "title": "FHSA first-time home buyer test",
+      "category": "FHSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/first-home-savings-account/opening-your-fhsas.html",
+      "summary": "For opening an FHSA, a first-time home buyer is generally someone who did not live in a qualifying home as their principal place of residence in the current calendar year or in the previous four calendar years if that home was owned or jointly owned by them.",
+      "details": [
+        "This first-time home buyer test is more specific than simply saying the person has not owned any home in the last five years.",
+        "The current calendar year plus the previous four calendar years matter."
+      ]
+    },
+    {
+      "id": "fhsa_contribution_room_basics",
+      "title": "FHSA contribution room basics",
+      "category": "FHSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/first-home-savings-account/contributing-your-fhsa.html",
+      "summary": "FHSA contribution room is limited and should be tracked carefully. There are annual and lifetime contribution room rules, and overcontributions can create penalties.",
+      "details": [
+        "When answering without live CRA room data, avoid inventing exact contribution figures.",
+        "It is safer to tell the user to verify current room in their CRA account or with their issuer."
+      ]
+    },
+    {
+      "id": "tfsa_opening_basics",
+      "title": "TFSA opening basics",
+      "category": "TFSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account/opening.html",
+      "summary": "To open a TFSA, the individual must generally be a resident of Canada for income tax purposes, be 18 years of age or older, and have a valid Social Insurance Number. In some provinces or territories, the contract age can be 19.",
+      "details": [
+        "Eligibility should be described with the resident-of-Canada and valid-SIN conditions, not only age.",
+        "The province or territory contract age can affect the timing of account opening."
+      ]
+    },
+    {
+      "id": "tfsa_tax_treatment_basics",
+      "title": "TFSA tax treatment basics",
+      "category": "TFSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account/opening.html",
+      "summary": "TFSA contributions are not deductible for income tax purposes. Investment growth inside the TFSA is generally tax-free, and withdrawals are generally tax-free, subject to CRA rules around issues such as excess amounts or non-qualified situations.",
+      "details": [
+        "It is safer to say withdrawals are generally tax-free rather than saying there is never any penalty or exception.",
+        "TFSA contribution room can accumulate over time if unused."
+      ]
+    },
+    {
+      "id": "tfsa_withdrawal_room_basics",
+      "title": "TFSA withdrawal room basics",
+      "category": "TFSA",
+      "source": "Canada Revenue Agency",
+      "source_url": "https://www.canada.ca/en/revenue-agency/services/tax/individuals/topics/tax-free-savings-account/withdrawals.html",
+      "summary": "TFSA withdrawals are generally tax-free, and amounts withdrawn are typically added back to TFSA contribution room at the beginning of the next calendar year.",
+      "details": [
+        "Do not tell users that TFSA withdrawals never affect contribution room.",
+        "The safer explanation is that room usually comes back in the next calendar year, not immediately."
+      ]
+    }
+  ]
+}

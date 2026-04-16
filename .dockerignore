@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.env
+.env.*
+!.env.example
+streamlit_*.log
+streamlit_*.out.log
+streamlit_*.err.log

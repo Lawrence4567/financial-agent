@@ -1,0 +1,71 @@
+date,description,amount,type,category
+05-01-2025,Payroll/Northern Loop Tech bi-weekly pay,3400,CR,Salary
+15-01-2025,Interac e-Transfer from Maya joint rent share,950,CR,Transfer In
+31-01-2025,Payroll/Northern Loop Tech bi-weekly pay,3425,CR,Salary
+01-01-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+08-01-2025,Loblaws Queen Quay,182.44,DR,Groceries
+12-01-2025,TTC monthly pass,156.00,DR,Transportation
+18-01-2025,Toronto Hydro,74.22,DR,Utilities
+19-01-2025,Rogers mobile and internet,142.35,DR,Telecom
+21-01-2025,EQ Bank FHSA contribution,500.00,DR,FHSA Contribution
+23-01-2025,Wealthsimple TFSA contribution,300.00,DR,TFSA Contribution
+26-01-2025,Scotiabank Visa payment,420.15,DR,Credit Card Payment
+28-01-2025,Tim Hortons and Uber Eats,58.40,DR,Dining
+14-02-2025,Payroll/Northern Loop Tech bi-weekly pay,3400,CR,Salary
+28-02-2025,Payroll/Northern Loop Tech bi-weekly pay,3425,CR,Salary
+01-02-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+06-02-2025,No Frills Spadina,176.85,DR,Groceries
+10-02-2025,TTC monthly pass,156.00,DR,Transportation
+17-02-2025,Toronto Hydro,76.55,DR,Utilities
+18-02-2025,Bell Canada mobile and internet,143.20,DR,Telecom
+20-02-2025,Questrade RRSP contribution,400.00,DR,RRSP Contribution
+24-02-2025,GoodLife Fitness,64.99,DR,Fitness
+27-02-2025,Scotiabank Visa payment,386.20,DR,Credit Card Payment
+04-03-2025,CRA tax refund,1248.76,CR,Tax Refund
+14-03-2025,Payroll/Northern Loop Tech bi-weekly pay,3410,CR,Salary
+28-03-2025,Payroll/Northern Loop Tech bi-weekly pay,3440,CR,Salary
+01-03-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+07-03-2025,Longos Maple Leaf Square,188.62,DR,Groceries
+13-03-2025,TTC monthly pass,156.00,DR,Transportation
+16-03-2025,Enbridge Gas,79.88,DR,Utilities
+18-03-2025,Rogers mobile and internet,142.90,DR,Telecom
+21-03-2025,EQ Bank FHSA contribution,500.00,DR,FHSA Contribution
+24-03-2025,WestJet seat sale Montreal trip,320.00,DR,Travel
+26-03-2025,Shoppers Drug Mart,48.65,DR,Healthcare
+30-03-2025,Scotiabank Visa payment,401.86,DR,Credit Card Payment
+15-04-2025,Payroll/Northern Loop Tech bi-weekly pay,3425,CR,Salary
+30-04-2025,Payroll/Northern Loop Tech bi-weekly pay,3450,CR,Salary
+01-04-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+09-04-2025,Costco Etobicoke,201.77,DR,Groceries
+12-04-2025,TTC monthly pass,156.00,DR,Transportation
+16-04-2025,Toronto Hydro,82.44,DR,Utilities
+18-04-2025,Rogers mobile and internet,143.00,DR,Telecom
+22-04-2025,Wealthsimple TFSA contribution,500.00,DR,TFSA Contribution
+24-04-2025,Home Depot condo supplies,245.60,DR,Home Maintenance
+27-04-2025,Cineplex and Spotify,94.25,DR,Entertainment
+29-04-2025,Scotiabank Visa payment,442.33,DR,Credit Card Payment
+15-05-2025,Payroll/Northern Loop Tech bi-weekly pay,3430,CR,Salary
+30-05-2025,Payroll/Northern Loop Tech bi-weekly pay,3460,CR,Salary
+31-05-2025,Scotiabank Visa cashback,22.10,CR,Cashback/Refund
+01-05-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+06-05-2025,Metro Front Street,189.12,DR,Groceries
+12-05-2025,TTC monthly pass,156.00,DR,Transportation
+17-05-2025,Enbridge Gas,80.28,DR,Utilities
+18-05-2025,Bell Canada mobile and internet,143.12,DR,Telecom
+21-05-2025,Questrade RRSP contribution,400.00,DR,RRSP Contribution
+23-05-2025,EQ Bank emergency fund transfer,600.00,DR,Savings Contribution
+26-05-2025,Shoppers Drug Mart,36.40,DR,Pharmacy
+29-05-2025,Scotiabank Visa payment,395.12,DR,Credit Card Payment
+13-06-2025,Payroll/Northern Loop Tech bi-weekly pay,3445,CR,Salary
+27-06-2025,Payroll/Northern Loop Tech bi-weekly pay,3470,CR,Salary
+30-06-2025,EQ Bank savings interest,18.42,CR,Interest
+01-06-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+05-06-2025,Loblaws Queen Quay,192.26,DR,Groceries
+11-06-2025,TTC monthly pass,156.00,DR,Transportation
+15-06-2025,Toronto Hydro,83.07,DR,Utilities
+18-06-2025,Rogers mobile and internet,143.35,DR,Telecom
+20-06-2025,EQ Bank FHSA contribution,800.00,DR,FHSA Contribution
+23-06-2025,Wealthsimple TFSA contribution,400.00,DR,TFSA Contribution
+24-06-2025,Porter Airlines Montreal trip,520.00,DR,Travel
+26-06-2025,Netflix and Spotify,27.99,DR,Subscription
+29-06-2025,Scotiabank Visa payment,438.90,DR,Credit Card Payment

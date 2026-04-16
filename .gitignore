@@ -1,1 +1,9 @@
-.env
+*.env
+.env.local
+.venv/
+__pycache__/
+*.pyc
+01_your_canada_version/data/artifacts_canada/audit_logs/
+streamlit_*.log
+streamlit_*.out.log
+streamlit_*.err.log

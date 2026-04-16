@@ -1,0 +1,41 @@
+{
+  "current_market_story": {
+    "headline": "Balanced portfolios are being supported by steady equity leadership, lower short-term rate pressure, and resilient cash yields.",
+    "summary": "The current case study assumes a constructive but selective market backdrop. U.S. equities remain the main growth engine, Canadian equities are adding diversification, and bond ETFs are helping smooth drawdowns rather than driving total return.",
+    "advisor_takeaway": "Use recent market moves as context, not as a reason to abandon the household's target mix. The case still favours a barbell of liquidity for near-term goals and diversified ETF exposure for long-term growth."
+  },
+  "current_themes": [
+    {
+      "theme": "U.S. equity leadership",
+      "implication": "Large-cap U.S. exposure is the biggest driver of portfolio growth in the current case."
+    },
+    {
+      "theme": "Bond stabilisation",
+      "implication": "Core bond ETFs are dampening volatility and helping the registered accounts stay balanced."
+    },
+    {
+      "theme": "Cash still matters",
+      "implication": "Cash ETFs and savings balances remain strategically useful for the home-purchase timeline and reserve planning."
+    }
+  ],
+  "month_explanations": [
+    {
+      "month": "2025-04",
+      "market_context": "Risk appetite softened for several weeks, which put temporary pressure on growth assets and listed real estate.",
+      "portfolio_effect": "The household portfolio posted a negative month because equity ETFs gave back part of their March gains and the real-estate sleeve lagged.",
+      "client_message": "The decline looked uncomfortable, but the bond and cash sleeves kept the overall drawdown controlled."
+    },
+    {
+      "month": "2025-05",
+      "market_context": "Risk sentiment improved, and Canadian plus global equity exposures recovered.",
+      "portfolio_effect": "The May rebound came mainly from diversified equity ETFs rather than from cash or bond holdings.",
+      "client_message": "This is a healthy example of why diversified growth assets are still needed for long-term goals even when the client also keeps a strong cash reserve."
+    },
+    {
+      "month": "2025-06",
+      "market_context": "Markets stayed constructive overall, but gains were narrower and real-asset exposure was softer.",
+      "portfolio_effect": "The portfolio still finished positive because U.S. and global equity ETFs were up, while bonds and cash helped steady the month.",
+      "client_message": "A positive month with muted returns usually means the portfolio is behaving as a balanced mix rather than a concentrated high-beta strategy."
+    }
+  ]
+}

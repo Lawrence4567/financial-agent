@@ -1,0 +1,55 @@
+{
+  "goal_priority_rules": [
+    {
+      "rule_id": "first_home_priority",
+      "match_keywords": [
+        "first home",
+        "first condo",
+        "down payment",
+        "home"
+      ],
+      "priority_order": [
+        "FHSA",
+        "TFSA",
+        "RRSP"
+      ],
+      "reason": "A first-home goal usually makes FHSA the strongest starting point, while TFSA stays flexible and RRSP remains more retirement-focused."
+    },
+    {
+      "rule_id": "retirement_priority",
+      "match_keywords": [
+        "retirement",
+        "financial independence"
+      ],
+      "priority_order": [
+        "RRSP",
+        "TFSA",
+        "FHSA"
+      ],
+      "reason": "A retirement-first goal often makes RRSP more valuable, especially when tax deduction and long-term investing matter."
+    },
+    {
+      "rule_id": "cash_reserve_priority",
+      "match_keywords": [
+        "emergency fund",
+        "cash reserve",
+        "short-term"
+      ],
+      "priority_order": [
+        "High-Interest Savings",
+        "TFSA",
+        "GIC"
+      ],
+      "reason": "Near-term savings goals usually need liquidity first, then tax-efficient flexibility, then fixed-term products if the timeline is clearer."
+    }
+  ],
+  "budgeting_guidelines": [
+    "Review major fixed costs first because rent and debt payments often shape the budget most.",
+    "Protect an emergency fund before increasing long-term investing risk.",
+    "Match each product to a goal, a time horizon, and a comfort level with volatility."
+  ],
+  "advisor_safety_notes": [
+    "Use this app for education and prototyping, not regulated personalized financial advice.",
+    "Contribution limits, tax rules, and product details should always be verified before real decisions."
+  ]
+}

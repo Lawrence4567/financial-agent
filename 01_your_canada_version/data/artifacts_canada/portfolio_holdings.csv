@@ -1,0 +1,11 @@
+account_name,symbol,holding_name,asset_class,region,market_value,cost_basis,weight,one_month_return_pct,ytd_return_pct,income_role,risk_level
+First Home Savings Account,CASH,Horizons High Interest Savings ETF,Cash ETF,Canada,6240.55,6205.10,11.50,0.34,2.12,Liquidity anchor,Low
+First Home Savings Account,XBB,iShares Core Canadian Universe Bond ETF,Bond ETF,Canada,7000.00,6882.45,12.90,1.10,3.24,Rate-sensitive stabilizer,Low
+Tax-Free Savings Account,XIC,iShares Core S&P/TSX Capped Composite ETF,Equity ETF,Canada,6480.13,5975.00,11.95,1.82,8.46,Canada equity core,Medium
+Tax-Free Savings Account,VFV,Vanguard S&P 500 Index ETF,Equity ETF,United States,8450.18,7440.25,15.58,2.94,13.58,Global growth driver,Medium
+Tax-Free Savings Account,XEF,iShares Core MSCI EAFE IMI Index ETF,Equity ETF,International,4020.69,3895.42,7.41,1.47,6.18,International diversification,Medium
+Tax-Free Savings Account,ZAG,BMO Aggregate Bond Index ETF,Bond ETF,Canada,2534.44,2615.20,4.67,0.92,1.84,Portfolio ballast,Low
+Registered Retirement Savings Plan,VUN,Vanguard U.S. Total Market Index ETF,Equity ETF,United States,7420.55,6810.40,13.68,2.63,12.44,Retirement growth engine,Medium
+Registered Retirement Savings Plan,XAW,iShares Core MSCI All Country World ex Canada Index ETF,Equity ETF,Global,5622.21,5335.00,10.36,2.08,10.21,Global core allocation,Medium
+Registered Retirement Savings Plan,XBB,iShares Core Canadian Universe Bond ETF,Bond ETF,Canada,5630.15,5752.22,10.37,1.10,3.24,Defensive fixed income,Low
+Registered Retirement Savings Plan,XRE,iShares S&P/TSX Capped REIT Index ETF,Real Estate ETF,Canada,980.61,1025.00,1.58,-0.84,2.91,Real asset diversifier,Medium

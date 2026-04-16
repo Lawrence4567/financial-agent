@@ -1,0 +1,82 @@
+{
+  "accounts": [
+    {
+      "category": "FHSA",
+      "purpose": "Registered account for saving toward a first home with deductible contributions and tax-free qualifying withdrawals.",
+      "strengths": [
+        "Can support a first-home down payment goal",
+        "Offers a tax deduction on contributions",
+        "Qualifying withdrawals are tax-free"
+      ],
+      "watchouts": [
+        "Best fit only if the user is eligible as a first-time home buyer",
+        "Contribution room is limited and should be tracked carefully"
+      ]
+    },
+    {
+      "category": "TFSA",
+      "purpose": "Flexible registered account for cash, GICs, ETFs, and other qualified investments with tax-free growth and withdrawals.",
+      "strengths": [
+        "Flexible for emergency funds and medium-term goals",
+        "Withdrawals do not create taxable income",
+        "Useful for both saving and investing"
+      ],
+      "watchouts": [
+        "Contribution room should still be monitored",
+        "Best used with a product mix that matches the time horizon"
+      ]
+    },
+    {
+      "category": "RRSP",
+      "purpose": "Retirement-focused registered account with deductible contributions and tax-deferred growth.",
+      "strengths": [
+        "Strong fit for retirement planning",
+        "Can reduce taxable income in higher-income years",
+        "Useful for long-term investing"
+      ],
+      "watchouts": [
+        "Withdrawals are generally taxable",
+        "Less flexible than a TFSA for short-term goals"
+      ]
+    },
+    {
+      "category": "High-Interest Savings",
+      "purpose": "Cash savings product for emergency funds and near-term goals.",
+      "strengths": [
+        "Liquid and easy to access",
+        "Good for emergency reserves",
+        "Simple product for beginners"
+      ],
+      "watchouts": [
+        "Expected returns are lower than long-term investing",
+        "Inflation can reduce real purchasing power over time"
+      ]
+    },
+    {
+      "category": "GIC",
+      "purpose": "Fixed-term deposit with principal protection and a known maturity value.",
+      "strengths": [
+        "Predictable return profile",
+        "Principal protection",
+        "Useful for short and medium-term goals with a fixed timeline"
+      ],
+      "watchouts": [
+        "Money may be locked in until maturity",
+        "May underperform equities over long periods"
+      ]
+    },
+    {
+      "category": "ETF Investing",
+      "purpose": "Diversified market investing through exchange-traded funds, often used for long-term growth.",
+      "strengths": [
+        "Diversification across many securities",
+        "Lower fees than many active funds",
+        "Good fit for long-term goals when risk tolerance allows"
+      ],
+      "watchouts": [
+        "Market prices can go up and down",
+        "Needs a longer time horizon and comfort with volatility"
+      ]
+    }
+  ]
+}
