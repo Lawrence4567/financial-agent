@@ -1,0 +1,46 @@
+<svg width="1100" height="420" viewBox="0 0 1100 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">RAG Index Build Flow</title>
+  <desc id="desc">Offline flow from reference files to chunk build, metadata store, optional embeddings, and local JSON index.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f1115; }
+      .title { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 28px; font-weight: 600; }
+      .subtitle { fill: #9ca3af; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; }
+      .box { fill: #1f1f1f; stroke: #d4d4d8; stroke-width: 2; rx: 12; }
+      .decision { fill: #171923; stroke: #d4d4d8; stroke-width: 2; }
+      .text { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 16px; text-anchor: middle; dominant-baseline: middle; }
+      .text-small { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+      .arrow { fill: none; stroke: #d4d4d8; stroke-width: 1.9; marker-end: url(#arrowhead); }
+      .arrow-soft { fill: none; stroke: #d4d4d8; stroke-width: 1.9; marker-end: url(#arrowhead); }
+      .label { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; font-weight: 600; }
+    </style>
+    <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5.8" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d4d4d8" /></marker>
+  </defs>
+  <rect class="bg" width="1100" height="420" />
+  <text class="title" x="70" y="48">RAG Index Build Flow</text>
+  <text class="subtitle" x="70" y="74">Offline preprocessing from reference content to local index</text>
+  <rect class="box" x="70" y="170" width="170" height="76" />
+  <rect class="box" x="300" y="170" width="170" height="76" />
+  <rect class="box" x="530" y="170" width="170" height="76" />
+  <polygon class="decision" points="815,150 905,208 815,266 725,208" />
+  <rect class="box" x="930" y="90" width="120" height="70" />
+  <rect class="box" x="930" y="170" width="120" height="70" />
+  <rect class="box" x="930" y="250" width="120" height="70" />
+  <text class="text" x="155" y="208">Reference JSON Files</text>
+  <text class="text" x="385" y="208">Build Chunks</text>
+  <text class="text-small" x="615" y="198"><tspan x="615" dy="0">Store Metadata</tspan><tspan x="615" dy="18">and Content Hash</tspan></text>
+  <text class="text" x="815" y="208">OpenAI Key?</text>
+  <text class="text-small" x="990" y="118"><tspan x="990" dy="0">Create</tspan><tspan x="990" dy="18">Embeddings</tspan></text>
+  <text class="text-small" x="990" y="198"><tspan x="990" dy="0">reference_rag_</tspan><tspan x="990" dy="18">index.json</tspan></text>
+  <text class="text-small" x="990" y="278"><tspan x="990" dy="0">Lexical-Only</tspan><tspan x="990" dy="18">Index</tspan></text>
+  <path class="arrow" d="M 240 208 L 300 208" />
+  <path class="arrow" d="M 470 208 L 530 208" />
+  <path class="arrow" d="M 700 208 L 725 208" />
+  <path class="arrow-soft" d="M 905 208 L 930 208" />
+  <path class="arrow-soft" d="M 850 160 L 915 120" />
+  <path class="arrow-soft" d="M 850 256 L 915 292" />
+  <path class="arrow" d="M 990 160 L 990 170" />
+  <path class="arrow" d="M 990 250 L 990 240" />
+  <text class="label" x="865" y="126">Yes</text>
+  <text class="label" x="860" y="322">No</text>
+</svg>

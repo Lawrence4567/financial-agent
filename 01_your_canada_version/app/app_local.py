@@ -118,10 +118,6 @@ if "selected_scenario" not in st.session_state:
     st.session_state.selected_scenario = "buy_home_first"
 if "developer_mode" not in st.session_state:
     st.session_state.developer_mode = False
-if "entry_channel" not in st.session_state:
-    st.session_state.entry_channel = "web_app"
-if "entry_device" not in st.session_state:
-    st.session_state.entry_device = "browser"
 if "demo_session_id" not in st.session_state:
     st.session_state.demo_session_id = build_request_metadata(user_id="demo").session_id
 
@@ -476,8 +472,6 @@ def build_request_metadata_for_ui(summary: dict) -> dict:
     return build_request_metadata(
         user_id=summary["user_profile"]["user_id"],
         session_id=st.session_state.demo_session_id,
-        channel=st.session_state.entry_channel,
-        device=st.session_state.entry_device,
     ).to_dict()
 
 
@@ -837,7 +831,6 @@ with st.sidebar:
     st.write(f"- Current mode: `{mode_label}`")
     if has_openai_key:
         st.write(f"- Model: `{os.getenv('OPENAI_MODEL', 'gpt-4o-mini')}`")
-    st.write(f"- Environment file: `{ENV_FILE_USED}`" if ENV_FILE_USED else "- Environment file: `not found`")
     st.session_state.developer_mode = st.checkbox(
         "Developer mode",
         value=st.session_state.developer_mode,
@@ -845,6 +838,8 @@ with st.sidebar:
     )
     if st.session_state.developer_mode:
         st.caption("System details are visible for learning and debugging.")
+        if ENV_FILE_USED:
+            st.write(f"- Local .env file: `{ENV_FILE_USED}`")
 
     with st.expander("Data Layers", expanded=False):
         st.write("- Client case data: household transactions, accounts, holdings, and performance files in `artifacts_canada/`")
@@ -857,18 +852,6 @@ with st.sidebar:
             st.write(f"- RAG chunks: `{rag_status['chunk_count']}`")
         if rag_status.get("embedding_provider"):
             st.write(f"- Retrieval backend: `{rag_status['embedding_provider']}`")
-    with st.expander("Entry Metadata", expanded=False):
-        st.session_state.entry_channel = st.selectbox(
-            "Channel",
-            ["web_app", "mobile_app", "advisor_platform"],
-            index=["web_app", "mobile_app", "advisor_platform"].index(st.session_state.entry_channel),
-        )
-        st.session_state.entry_device = st.selectbox(
-            "Device",
-            ["browser", "ios_phone", "android_phone", "advisor_desktop"],
-            index=["browser", "ios_phone", "android_phone", "advisor_desktop"].index(st.session_state.entry_device),
-        )
-        st.write(f"- Session ID: `{st.session_state.demo_session_id}`")
 
 if page == "Copilot":
     render_copilot(has_openai_key, developer_mode=st.session_state.developer_mode)

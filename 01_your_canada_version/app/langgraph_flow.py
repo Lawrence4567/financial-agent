@@ -41,7 +41,7 @@ def run_langgraph_analysis_flow(
     summary: dict,
     chat_history: list[dict] | None,
     request_metadata: dict,
-    verify_access_fn: Callable[[dict, dict], dict],
+    access_decision: dict,
     run_tools_fn: Callable[[str, dict, QueryRouteDecision, OrchestratedContext], dict],
     execute_route_fn: Callable[..., dict],
     compliance_fn: Callable[[dict, dict], dict],
@@ -50,11 +50,6 @@ def run_langgraph_analysis_flow(
         raise RuntimeError("LangGraph is not installed in this environment.")
 
     workflow = StateGraph(AnalysisGraphState)
-
-    def verify_access_node(state: AnalysisGraphState) -> AnalysisGraphState:
-        return {
-            "access_decision": verify_access_fn(state["request_metadata"], state["summary"]),
-        }
 
     def route_node(state: AnalysisGraphState) -> AnalysisGraphState:
         return {
@@ -102,15 +97,13 @@ def run_langgraph_analysis_flow(
             "answer_payload": compliance_fn(state["answer_payload"], state["summary"]),
         }
 
-    workflow.add_node("verify_access", verify_access_node)
     workflow.add_node("route_query", route_node)
     workflow.add_node("gather_context", context_node)
     workflow.add_node("run_tools", tool_node)
     workflow.add_node("generate_response", execute_node)
     workflow.add_node("compliance_check", compliance_node)
 
-    workflow.set_entry_point("verify_access")
-    workflow.add_edge("verify_access", "route_query")
+    workflow.set_entry_point("route_query")
     workflow.add_edge("route_query", "gather_context")
     workflow.add_edge("gather_context", "run_tools")
     workflow.add_edge("run_tools", "generate_response")
@@ -125,5 +118,6 @@ def run_langgraph_analysis_flow(
             "summary": summary,
             "chat_history": chat_history or [],
             "request_metadata": request_metadata,
+            "access_decision": access_decision,
         }
     )

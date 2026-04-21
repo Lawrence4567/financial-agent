@@ -2,83 +2,80 @@
 
 ## 1. Document Purpose
 
-This document explains the system architecture [系统架构] of the Canada-first financial advisory app [金融顾问应用] in a standard, beginner-friendly way.
+This document focuses on detailed architecture.
 
-It covers:
+Use the root `README.md` for project overview and local setup.
+Use `PROJECT_MAP_CANADA.md` for folder structure and reading order.
+Use `ARCHITECTURE_DIAGRAMS.md` for all diagrams in one place.
 
-- business goal [业务目标]
-- application structure [应用结构]
-- module responsibilities [模块职责]
-- data architecture [数据架构]
-- runtime workflow [运行流程]
-- RAG pipeline [检索增强生成流程]
-- LangChain implementation [LangChain 实现方式]
-- LangGraph orchestration [LangGraph 编排方式]
-- fallback strategy [降级策略]
+This file explains:
 
-Main app path:
-
-`01_your_canada_version/`
+- module responsibilities
+- data architecture
+- runtime workflow
+- RAG pipeline
+- LangChain implementation
+- LangGraph orchestration
+- fallback strategy
 
 ## 2. System Scope
 
 ### In Scope
 
-- local Streamlit UI [本地界面]
-- sample Canadian client-case finance data [加拿大客户案例金融数据]
-- deterministic recommendation engine [确定性推荐引擎]
-- local RAG over reference JSON files [基于本地参考文件的 RAG]
-- optional OpenAI-based answer generation [可选的 OpenAI 答案生成]
-- optional Yahoo Finance ETF snapshot [可选的 Yahoo Finance ETF 快照]
-- LangGraph-based execution flow [基于 LangGraph 的执行流程]
+- local Streamlit UI
+- sample Canadian client-case finance data
+- deterministic recommendation engine
+- local RAG over reference JSON files
+- optional OpenAI-based answer generation
+- optional Yahoo Finance ETF snapshot
+- LangGraph-based execution flow
 
 ### Out of Scope
 
-- real customer banking integration [真实银行系统接入]
-- transaction write-back [交易回写]
-- compliance-grade regulated advice [合规级受监管投资建议]
-- production authentication and authorization [生产级身份认证与授权]
-- external vector database [外部向量数据库]
-- multi-user backend service [多用户后端服务]
+- real customer banking integration
+- transaction write-back
+- compliance-grade regulated advice
+- production authentication and authorization
+- external vector database
+- multi-user backend service
 
 ## 3. Business Goal
 
-The app is designed as a learning-first financial copilot [金融副驾驶] for a Canadian personal finance use case.
+The app is designed as a learning-first financial copilot for a Canadian personal finance use case.
 
 Its goal is to help a user:
 
-- understand spending patterns [消费模式]
+- understand spending patterns
 - compare account types such as `FHSA`, `TFSA`, and `RRSP`
-- receive beginner-friendly product guidance [产品建议]
-- see simple ETF market context [ETF 市场上下文]
-- learn how a hybrid rules + RAG + LLM architecture works [规则 + RAG + LLM 混合架构]
+- receive beginner-friendly product guidance
+- see simple ETF market context
+- learn how a hybrid rules + RAG + LLM architecture works
 
 ## 4. Architecture Style
 
-The application uses a hybrid architecture [混合架构]:
+The application uses a hybrid architecture:
 
-- `UI layer [界面层]`: Streamlit app
-- `application layer [应用层]`: query routing, orchestration, prompt assembly
-- `domain logic layer [领域逻辑层]`: spending analysis and recommendation scoring
-- `knowledge layer [知识层]`: local reference documents and RAG index
-- `integration layer [集成层]`: OpenAI Responses API and Yahoo Finance
+- `UI layer`: Streamlit app
+- `application layer`: query routing, orchestration, prompt assembly
+- `domain logic layer`: spending analysis and recommendation scoring
+- `knowledge layer`: local reference documents and RAG index
+- `integration layer`: OpenAI Responses API and Yahoo Finance
 
-This is not a microservice architecture [微服务架构]. It is a modular monolith [模块化单体应用], which is a good choice for a beginner project because it is easier to read, run, and extend.
+This is not a microservice architecture. It is a modular monolith, which is a good choice for a beginner project because it is easier to read, run, and extend.
 
 ## 5. System Context
 
 ### Primary Users
 
-- portfolio reviewer [作品集评审者]
-- interview panel [面试官]
-- beginner learner [初学者]
-- single local developer [本地开发者]
+- beginner learner
+- single local developer
+- internal demo user
 
 ### External Dependencies
 
-- `OpenAI API`: optional LLM and embeddings [嵌入]
+- `OpenAI API`: optional LLM and embeddings
 - `Yahoo Finance via yfinance`: optional ETF market snapshot
-- local filesystem [本地文件系统]: CSV, JSON, and generated RAG index
+- local filesystem: CSV, JSON, and generated RAG index
 
 ## 6. High-Level Component View
 
@@ -89,9 +86,11 @@ This is not a microservice architecture [微服务架构]. It is a modular monol
 | UI | `app/app_local.py` | Streamlit pages, chat, dashboard, scenario planner, developer mode |
 | Data Source Layer | `app/data_sources.py` | Load CSV/JSON data, environment variables, market snapshot fetch |
 | Main Analysis Entry | `app/local_financial_qa.py` | Main runtime entry for question answering and fallback handling |
+| Governance Layer | `app/demo_governance.py` | Internal request record, access checks, compliance guardrails, and audit logging |
+| Analytics Tool Layer | `app/analytics_tools.py` | Deterministic portfolio attribution, exposure, and volatility analysis |
 | Query Router | `app/query_router.py` | Detect user intent and choose the route |
 | Context Orchestrator | `app/response_orchestrator.py` | Fetch RAG context and market context only when needed |
-| LangGraph Flow | `app/langgraph_flow.py` | Build `route -> gather_context -> execute_route` graph |
+| LangGraph Flow | `app/langgraph_flow.py` | Build `route_query -> gather_context -> run_tools -> generate_response -> compliance_check` over a validated request state |
 | Recommendation Engine | `app/recommendation_engine.py` | Score products with deterministic rules |
 | RAG Pipeline | `app/rag_pipeline.py` | Build local chunks, embeddings, index, and retrieval |
 | Prompt Builder | `app/prompt_builder.py` | Build structured prompt context for LLM calls |
@@ -99,62 +98,31 @@ This is not a microservice architecture [微服务架构]. It is a modular monol
 
 ### 6.2 Logical Responsibilities
 
-1. `app_local.py` handles interaction [交互].
-2. `analyze_financial_data_local()` is the main controller [主控制入口].
+1. `app_local.py` handles interaction.
+2. `analyze_financial_data_local()` is the main controller.
 3. `route_query()` decides what kind of question the user asked.
 4. `gather_orchestrated_context()` loads only the needed context.
-5. `execute_route_analysis()` produces the final answer path.
-6. `answer_with_llm()` and `answer_with_rag()` call the LLM when available.
-7. Rules-based fallback [规则降级] keeps the app usable even if external AI features fail.
+5. `run_analysis_tools_for_route()` adds deterministic portfolio analytics when the route needs them.
+6. `execute_route_analysis()` produces the final answer path.
+7. `apply_compliance_to_payload()` softens unsafe wording and attaches guardrail metadata.
+8. Rules-based fallback keeps the app usable even if external AI features fail.
 
-## 7. Directory Structure
+## 7. Data Architecture
 
-```text
-financial_advisory_genai/
-├─ README.md
-├─ .env.example
-└─ 01_your_canada_version/
-   ├─ app/
-   │  ├─ app_local.py
-   │  ├─ data_sources.py
-   │  ├─ local_financial_qa.py
-   │  ├─ query_router.py
-   │  ├─ response_orchestrator.py
-   │  ├─ rag_pipeline.py
-   │  ├─ prompt_builder.py
-   │  ├─ langchain_adapter.py
-   │  ├─ langgraph_flow.py
-   │  └─ recommendation_engine.py
-   ├─ data/
-   │  ├─ artifacts_canada/
-   │  │  ├─ cat.csv
-   │  │  ├─ user_info.csv
-   │  │  ├─ product_catalog.csv
-   │  │  └─ reference_rag_index.json
-   │  └─ reference_canada/
-   │     ├─ account_knowledge.json
-   │     ├─ planning_guidance.json
-   │     ├─ official_account_rules.json
-   │     └─ market_context.json
-   └─ docs/
-      ├─ README_LOCAL.md
-      ├─ PROJECT_MAP_CANADA.md
-      └─ SYSTEM_ARCHITECTURE.md
-```
-
-## 8. Data Architecture
-
-### 8.1 Operational Data [业务数据]
+### 7.1 Operational Data
 
 Stored in `data/artifacts_canada/`:
 
-- `user_info.csv`: user persona [用户画像]
-- `cat.csv`: transaction history [交易历史]
-- `product_catalog.csv`: product definitions [产品目录]
+- `user_info.csv`: user persona
+- `cat.csv`: transaction history
+- `account_summary.csv`: account balances and liquidity fields
+- `portfolio_holdings.csv`: current holdings and asset mix
+- `portfolio_performance.csv`: monthly return history
+- `product_catalog.csv`: product definitions
 
 These files are loaded by `data_sources.py`.
 
-### 8.2 Reference Knowledge [参考知识]
+### 7.2 Reference Knowledge
 
 Stored in `data/reference_canada/`:
 
@@ -162,49 +130,56 @@ Stored in `data/reference_canada/`:
 - `planning_guidance.json`
 - `official_account_rules.json`
 - `market_context.json`
+- `market_commentary.json`
 
-These files provide explanation-focused knowledge [解释型知识], planning rules [规划规则], safety notes [安全提示], and market watchlist configuration [观察列表配置].
+These files provide explanation-focused knowledge, planning rules, safety notes, market watchlist configuration, and month-level market narratives.
 
-### 8.3 Derived Data [派生数据]
+### 7.3 Derived Data
 
 Stored in `data/artifacts_canada/reference_rag_index.json`:
 
-- chunk metadata [分块元数据]
-- chunk text [分块文本]
-- content hash [内容哈希]
-- optional embedding vectors [可选嵌入向量]
-- provider and model metadata [提供方与模型元数据]
+- chunk metadata
+- chunk text
+- content hash
+- optional embedding vectors
+- provider and model metadata
 
-This means the current project uses a local JSON index [本地 JSON 索引], not a dedicated vector database [向量数据库].
+This means the current project uses a local JSON index, not a dedicated vector database.
 
-## 9. Runtime Architecture
+## 8. Runtime Architecture
 
-### 9.1 Main Entry Flow
+### 8.1 Main Entry Flow
 
 The main question-answering runtime starts from:
 
 - UI event in `app_local.py`
 - call to `analyze_financial_data_local(query, use_llm=True/False)`
 
-### 9.2 Runtime Steps
+### 8.2 Runtime Diagram
 
-1. Capture request metadata [请求元数据]: user id, session id, channel, device, timestamp.
-2. Load local finance context [金融上下文].
-3. Build a summary object [汇总对象].
-4. Enforce identity and access control [身份与权限控制] before AI reasoning.
-5. Try LangGraph orchestration if installed.
-6. Route the query.
-7. Gather optional market and RAG context.
-8. Run analytics tools for routes that need grounded portfolio analysis.
-9. Execute the selected answer path.
-10. Run a post-generation compliance check [生成后合规检查].
-11. Write an audit log [审计日志].
-12. Return structured output to Streamlit.
-13. Render answer, cards, market snapshot, and optional developer diagnostics.
+See [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md#2-runtime-processing-flow).
 
-## 10. Query Routing Design
+### 8.3 Runtime Steps
 
-The router in `query_router.py` uses keyword-based intent detection [基于关键词的意图识别].
+1. Create an internal request record: user id, session id, and timestamp.
+2. Load the minimal identity file from `user_info.csv`.
+3. Enforce identity and access control before loading full client context.
+4. Load full local finance context only after access is allowed.
+5. Build a summary object.
+6. Re-check the request against the loaded profile and run the early safety screen.
+7. Choose the workflow engine: LangGraph if available, otherwise the Python fallback.
+8. Route the query.
+9. Gather optional market and RAG context.
+10. Run analytics tools for routes that need grounded portfolio analysis.
+11. Execute the selected answer path.
+12. Run a post-generation compliance check.
+13. Write an audit log.
+14. Return structured output to Streamlit.
+15. Render answer, cards, market snapshot, and optional developer diagnostics.
+
+## 9. Query Routing Design
+
+The router in `query_router.py` uses a hybrid routing pattern: keyword checks, safety checks, and semantic example matching.
 
 ### Supported Route Types
 
@@ -212,7 +187,12 @@ The router in `query_router.py` uses keyword-based intent detection [基于关�
 |---|---|
 | `architecture_rules` | explain app structure and data layers |
 | `spending_rules` | deterministic spending summary |
+| `account_summary_rules` | household balances, liquidity, and net-worth summary |
+| `portfolio_explanation` | portfolio holdings, asset mix, and positioning explanation |
+| `performance_explanation` | why recent returns changed using performance data and market commentary |
+| `risk_profile_rules` | risk tolerance and suitability explanation from the profile snapshot |
 | `market_snapshot_rules` | fetch ETF snapshot |
+| `market_explanation` | explain market backdrop and what it means for the portfolio |
 | `recommendation_rules` | deterministic product prioritization |
 | `rag_knowledge` | retrieve reference knowledge first |
 | `hybrid_spending_recommendation` | combine spending and recommendation logic |
@@ -224,61 +204,67 @@ The router in `query_router.py` uses keyword-based intent detection [基于关�
 
 ### Design Choice
 
-This router is simple but educational:
+This router is practical and still easy to learn:
 
-- easy to read [易读]
-- predictable [可预测]
-- easy to debug [易调试]
-- good for learning orchestration before using a classifier model [在引入分类模型前先学习编排]
+- easy to read
+- predictable
+- easy to debug
+- supports both explicit rules and semantic routing without a heavy classifier service
 
-## 11. Recommendation Engine Design
+## 10. Recommendation Engine Design
 
-`recommendation_engine.py` implements deterministic scoring [确定性评分].
+`recommendation_engine.py` implements deterministic scoring.
 
 ### Inputs
 
-- user profile [用户画像]
-- product catalog [产品目录]
-- reference knowledge [参考知识]
-- priority order [优先级顺序]
-- cash flow [现金流]
+- user profile
+- product catalog
+- reference knowledge
+- priority order
+- cash flow
 
 ### Logic
 
 The engine:
 
-- detects reason tags [原因标签], such as `first_home_goal` and `positive_cash_flow`
-- applies category-specific scoring rules [分类评分规则]
+- detects reason tags, such as `first_home_goal` and `positive_cash_flow`
+- applies category-specific scoring rules
 - calculates score and priority
-- returns ranked recommendations [排序推荐]
+- returns ranked recommendations
 
 ### Why This Matters
 
-This gives the project a non-LLM decision layer [非 LLM 决策层]. That is good system design because not every answer should depend on a model.
+This gives the project a non-LLM decision layer. That is good system design because not every answer should depend on a model.
 
-## 12. RAG Architecture
+## 11. RAG Architecture
 
-### 12.1 RAG Goal
+### 11.1 RAG Goal
 
-The RAG layer helps answer finance knowledge questions using local reference documents instead of guessing [猜测].
+The RAG layer helps answer finance knowledge questions using local reference documents instead of guessing.
 
-### 12.2 Source Documents
+### 11.2 Source Documents
 
 The current RAG sources come from:
 
 - `account_knowledge.json`
 - `planning_guidance.json`
 - `official_account_rules.json`
+- `market_context.json`
+- `market_commentary.json`
 
-### 12.3 Chunk Construction
+### 11.3 Chunk Construction
 
-`rag_pipeline.py` converts reference JSON into normalized chunks [标准化文本分块]:
+`rag_pipeline.py` converts reference JSON into normalized chunks:
 
 - account chunks
 - planning rule chunks
 - budgeting guideline chunks
 - safety note chunks
 - official rule chunks
+- market context overview chunks
+- market watchlist chunks
+- market story and theme chunks
+- month-level market explanation chunks
 
 Each chunk stores:
 
@@ -290,7 +276,7 @@ Each chunk stores:
 - `content_hash`
 - optional `vector`
 
-### 12.4 Index Build Strategy
+### 11.4 Index Build Strategy
 
 When the index is built:
 
@@ -298,10 +284,14 @@ When the index is built:
 2. chunks are generated
 3. the system checks whether `OPENAI_API_KEY` exists
 4. if yes, embeddings are created with `text-embedding-3-small`
-5. if not, vectors are skipped and lexical retrieval [词法检索] is used
+5. if not, vectors are skipped and lexical retrieval is used
 6. the index is written to `reference_rag_index.json`
 
-### 12.5 Retrieval Strategy
+#### Offline Index Build Flow
+
+See [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md#4-rag-index-build-flow).
+
+### 11.5 Retrieval Strategy
 
 When a RAG query arrives:
 
@@ -309,27 +299,31 @@ When a RAG query arrives:
 2. detect retrieval mode
 3. if embeddings exist:
    - embed the query
-   - compute cosine similarity [余弦相似度]
-   - combine semantic score [语义分数], lexical score [词法分数], and entity bonus [实体加分]
+   - compute cosine similarity
+   - combine semantic score, lexical score, and entity bonus
 4. otherwise:
    - use lexical scoring only
 5. sort chunks by score
 6. return top `k` chunks
 
-### 12.6 Important Design Note
+#### Online Query-Time Retrieval Flow
 
-This project uses a light local RAG architecture [轻量本地 RAG 架构]:
+See [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md#5-rag-query-time-retrieval-flow).
+
+### 11.6 Important Design Note
+
+This project uses a light local RAG architecture:
 
 - no external vector DB
 - no document store service
 - no retrieval API server
-- retrieval happens inside the Python app process [进程内检索]
+- retrieval happens inside the Python app process
 
 This is a smart beginner-friendly design because it keeps the system small while still showing true RAG concepts.
 
-## 13. Prompt Engineering Design
+## 12. Prompt Engineering Design
 
-`prompt_builder.py` assembles structured context [结构化上下文] before sending it to the model.
+`prompt_builder.py` assembles structured context before sending it to the model.
 
 ### Context Sections
 
@@ -345,18 +339,18 @@ Depending on the query, prompts may include:
 
 ### Benefits
 
-- cleaner prompts [更清晰的提示词]
-- easier debugging [更容易调试]
-- route-specific context packing [按路由打包上下文]
-- safer RAG answers because retrieved text is explicit [检索文本显式提供]
+- cleaner prompts
+- easier debugging
+- route-specific context packing
+- safer RAG answers because retrieved text is explicit
 
-## 14. LangChain Implementation
+## 13. LangChain Implementation
 
-### 14.1 Current Role
+### 13.1 Current Role
 
-`langchain_adapter.py` provides an optional `LangChain` integration [集成].
+`langchain_adapter.py` provides an optional `LangChain` integration.
 
-### 14.2 How It Works
+### 13.2 How It Works
 
 1. `should_use_langchain_backend()` checks `LLM_BACKEND`.
 2. `invoke_langchain_text()` builds a `ChatPromptTemplate`.
@@ -364,59 +358,63 @@ Depending on the query, prompts may include:
 4. `RunnableLambda` executes the pipeline.
 5. The final call still goes to the OpenAI Responses API.
 
-### 14.3 What LangChain Is Doing Here
+### 13.3 What LangChain Is Doing Here
 
-In this project, `LangChain` is used mainly as a prompt pipeline [提示词流水线]:
+In this project, `LangChain` is used mainly as a prompt pipeline:
 
-- prompt templating [模板化]
-- runnable composition [可运行链式组合]
-- backend abstraction [后端抽象]
+- prompt templating
+- runnable composition
+- backend abstraction
 
 It is not currently being used for:
 
-- agent tool-calling [工具调用代理]
-- memory store [记忆存储]
+- agent tool-calling
+- memory store
 - retrieval framework ownership
 
-### 14.4 Why This Is Reasonable
+### 13.4 Why This Is Reasonable
 
-This is a good incremental adoption [渐进式引入]:
+This is a good incremental adoption:
 
 - keeps architecture understandable
 - shows practical LangChain usage
-- avoids unnecessary complexity [不必要复杂性]
+- avoids unnecessary complexity
 
-## 15. LangGraph Implementation
+## 14. LangGraph Implementation
 
-### 15.1 Current Role
+### 14.1 Current Role
 
-`langgraph_flow.py` implements the orchestration graph [编排图].
+`langgraph_flow.py` implements the orchestration graph.
 
-### 15.2 Graph Nodes
+### 14.2 Graph Nodes
 
-The graph now has six nodes:
+The graph now has five nodes:
 
-1. `verify_access`
-2. `route_query`
-3. `gather_context`
-4. `run_tools`
-5. `generate_response`
-6. `compliance_check`
+1. `route_query`
+2. `gather_context`
+3. `run_tools`
+4. `generate_response`
+5. `compliance_check`
 
-### 15.3 Graph State
+### 14.3 Workflow Diagram
 
-The shared state [共享状态] includes:
+See [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md#6-langgraph-workflow-diagram).
+
+### 14.4 Graph State
+
+The shared state includes:
 
 - `query`
 - `use_llm`
 - `summary`
+- `access_decision`
 - `route_decision`
 - `orchestrated_context`
 - `answer_payload`
 
-### 15.4 Why LangGraph Fits
+### 14.5 Why LangGraph Fits
 
-LangGraph is useful here because the app already behaves like a workflow engine [工作流引擎]:
+LangGraph is useful here because the app already behaves like a workflow engine after request validation is complete:
 
 - detect intent
 - collect needed context
@@ -425,13 +423,13 @@ LangGraph is useful here because the app already behaves like a workflow engine 
 
 Even though the graph is simple now, it creates a clean path for future upgrades:
 
-- add human review [人工审核]
-- add retries [重试]
-- add tool nodes [工具节点]
-- add evaluator nodes [评估节点]
-- add multi-step decision branches [多步分支]
+- add human review
+- add retries
+- add tool nodes
+- add evaluator nodes
+- add multi-step decision branches
 
-## 16. End-to-End Answer Paths
+## 15. End-to-End Answer Paths
 
 ### Path A: Rules-Only Answer
 
@@ -476,9 +474,19 @@ Flow:
 
 `User -> Router -> Gather mixed context -> execute route -> render answer + cards + sources`
 
-## 17. Error Handling and Fallback Strategy
+### Path E: Performance Explanation
 
-This app is designed to degrade gracefully [优雅降级].
+Used when:
+
+- the question asks why portfolio returns changed
+
+Flow:
+
+`User -> Access check -> Router -> Gather market + RAG context -> Run analytics tools -> Generate grounded explanation -> Compliance -> Audit log -> UI`
+
+## 16. Error Handling and Fallback Strategy
+
+This app is designed to degrade gracefully.
 
 ### Fallback Rules
 
@@ -487,15 +495,13 @@ This app is designed to degrade gracefully [优雅降级].
 - if OpenAI structured parsing fails, use plain text response
 - if LLM generation fails, use deterministic local rules or source-summary fallback
 - if embeddings are unavailable, use lexical retrieval
-- if Yahoo Finance fails, show safe message instead of breaking the UI
+- if Yahoo Finance fails, show a safe message instead of breaking the UI
 
-This is strong architecture practice [良好的架构实践] because the user still gets an answer even when optional components fail.
+## 17. Security and Safety Notes
 
-## 18. Security and Safety Notes
+Current safety controls include:
 
-Current safety controls [安全控制] include:
-
-- request metadata capture for demo flows
+- internal request records for demo traceability
 - identity and access control before AI reasoning
 - local data only for core profile logic
 - educational wording instead of regulated advice
@@ -507,53 +513,30 @@ Current safety controls [安全控制] include:
 
 Current limitations:
 
-- no secrets manager [密钥管理]
-- no policy engine [策略引擎]
-- access control is still demo-local rather than production-grade IAM [身份访问管理]
-- audit logging is file-based rather than a managed observability stack [可观测性栈]
+- no secrets manager
+- no policy engine
+- access control is still demo-local rather than production-grade IAM
+- audit logging is file-based rather than a managed observability stack
 
-These are acceptable for a local learning project, but they would matter in production [生产环境].
+These are acceptable for a local learning project, but they would matter in production.
 
-## 19. Deployment View
+## 18. Strengths of the Current Design
 
-Current deployment style [部署方式]:
-
-- local machine execution [本地机器运行]
-- Streamlit web server [Streamlit Web 服务]
-- file-based storage [基于文件的存储]
-- optional internet calls to OpenAI and Yahoo Finance
-
-Required runtime dependencies are listed in:
-
-`01_your_canada_version/requirements-local.txt`
-
-Key packages:
-
-- `streamlit`
-- `pandas`
-- `openai`
-- `python-dotenv`
-- `yfinance`
-- `langchain-core`
-- `langgraph`
-
-## 20. Strengths of the Current Design
-
-- clear module boundaries [清晰模块边界]
-- beginner-friendly architecture [适合初学者的架构]
-- real hybrid AI pattern [真实混合 AI 模式]
+- clear module boundaries
+- beginner-friendly architecture
+- real hybrid AI pattern
 - deterministic recommendation engine
 - local RAG without heavy infrastructure
 - graceful fallback design
-- strong explainability [可解释性] through developer mode
+- strong explainability through developer mode
 
-## 21. Current Gaps and Future Improvements
+## 19. Current Gaps and Future Improvements
 
 ### Current Gaps
 
 - router is keyword-based, not model-based
-- no persistent conversation memory [持久会话记忆]
-- no evaluation framework [评估框架]
+- no persistent conversation memory
+- no evaluation framework
 - no unit/integration test suite shown in this architecture layer
 - no production API/backend separation
 
@@ -561,15 +544,15 @@ Key packages:
 
 1. add automated tests for routing, scoring, and retrieval
 2. separate application service layer from UI layer further
-3. add structured logging [结构化日志]
-4. add prompt/version tracking [提示词版本跟踪]
-5. add source citation rendering [来源引用渲染]
+3. add structured logging
+4. add prompt/version tracking
+5. add source citation rendering
 6. move RAG index build into a dedicated script or startup task
 7. add a classifier route or policy layer for more robust intent detection
 
-## 22. Final Architecture Summary
+## 20. Final Architecture Summary
 
-This app is a modular monolith [模块化单体应用] that combines:
+This app is a modular monolith that combines:
 
 - local finance datasets
 - deterministic recommendation logic
@@ -583,4 +566,4 @@ The most important architecture idea is this:
 
 `rules decide what is stable, RAG explains what is documented, and LLMs improve how the answer is written.`
 
-That is a strong and standard hybrid AI system design [标准混合 AI 系统设计] for a beginner portfolio project.
+That is a strong and standard hybrid AI system design for a beginner-friendly demo project.

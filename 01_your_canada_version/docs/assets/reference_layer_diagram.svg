@@ -1,0 +1,43 @@
+<svg width="1180" height="460" viewBox="0 0 1180 460" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Reference-Layer Diagram</title>
+  <desc id="desc">Reference files feed the local RAG index, which supports knowledge explanation, performance explanation, and hybrid advisory answers.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f1115; }
+      .title { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 28px; font-weight: 600; }
+      .subtitle { fill: #9ca3af; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; }
+      .box { fill: #1f1f1f; stroke: #d4d4d8; stroke-width: 2; rx: 12; }
+      .soft { fill: #171923; stroke: #d4d4d8; stroke-width: 1.5; rx: 12; }
+      .text { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 16px; text-anchor: middle; dominant-baseline: middle; }
+      .text-small { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+      .arrow { fill: none; stroke: #d4d4d8; stroke-width: 1.9; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5.8" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d4d4d8" /></marker>
+  </defs>
+  <rect class="bg" width="1180" height="460" />
+  <text class="title" x="70" y="48">Reference-Layer Diagram</text>
+  <text class="subtitle" x="70" y="74">How reusable knowledge files feed retrieval and explanation paths</text>
+  <rect class="soft" x="70" y="130" width="180" height="58" />
+  <rect class="soft" x="70" y="200" width="180" height="58" />
+  <rect class="soft" x="70" y="270" width="180" height="58" />
+  <rect class="soft" x="70" y="340" width="180" height="58" />
+  <rect class="soft" x="300" y="200" width="220" height="120" />
+  <rect class="box" x="590" y="130" width="220" height="76" />
+  <rect class="box" x="590" y="220" width="220" height="76" />
+  <rect class="box" x="590" y="310" width="220" height="76" />
+  <text class="text-small" x="160" y="152"><tspan x="160" dy="0">account_knowledge</tspan><tspan x="160" dy="18">.json</tspan></text>
+  <text class="text-small" x="160" y="222"><tspan x="160" dy="0">planning_guidance</tspan><tspan x="160" dy="18">.json</tspan></text>
+  <text class="text-small" x="160" y="292"><tspan x="160" dy="0">official_account_rules</tspan><tspan x="160" dy="18">.json</tspan></text>
+  <text class="text-small" x="160" y="362"><tspan x="160" dy="0">market_context +</tspan><tspan x="160" dy="18">market_commentary</tspan></text>
+  <text class="text-small" x="410" y="246"><tspan x="410" dy="0">Local RAG Index</tspan><tspan x="410" dy="18">retrieve_reference_context</tspan></text>
+  <text class="text-small" x="700" y="160"><tspan x="700" dy="0">Knowledge</tspan><tspan x="700" dy="18">Explanation Answers</tspan></text>
+  <text class="text-small" x="700" y="250"><tspan x="700" dy="0">Performance</tspan><tspan x="700" dy="18">Explanation Support</tspan></text>
+  <text class="text-small" x="700" y="340"><tspan x="700" dy="0">Hybrid</tspan><tspan x="700" dy="18">Advisory Answers</tspan></text>
+  <path class="arrow" d="M 250 159 L 290 225" />
+  <path class="arrow" d="M 250 229 L 290 240" />
+  <path class="arrow" d="M 250 299 L 290 255" />
+  <path class="arrow" d="M 250 369 L 290 270" />
+  <path class="arrow" d="M 520 230 L 580 168" />
+  <path class="arrow" d="M 520 260 L 580 258" />
+  <path class="arrow" d="M 520 290 L 580 348" />
+</svg>

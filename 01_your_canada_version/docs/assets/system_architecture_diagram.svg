@@ -1,0 +1,77 @@
+<svg width="1480" height="760" viewBox="0 0 1480 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">System Architecture Diagram</title>
+  <desc id="desc">High-level architecture showing user input, access control, approved data layer, orchestration, tools, RAG, LLM, compliance, logging, and final output.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f1115; }
+      .title { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 28px; font-weight: 600; }
+      .subtitle { fill: #9ca3af; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; }
+      .box { fill: #1f1f1f; stroke: #d4d4d8; stroke-width: 2; rx: 12; }
+      .soft { fill: #171923; stroke: #d4d4d8; stroke-width: 1.5; rx: 12; }
+      .text { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 16px; text-anchor: middle; dominant-baseline: middle; }
+      .text-small { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; text-anchor: middle; }
+      .group-label { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 14px; font-weight: 600; }
+      .arrow { fill: none; stroke: #d4d4d8; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowhead); }
+      .arrow-soft { fill: none; stroke: #d4d4d8; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowhead); }
+      .deny { fill: none; stroke: #d4d4d8; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5.8" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d4d4d8" />
+    </marker>
+  </defs>
+  <rect class="bg" width="1480" height="760" />
+  <text class="title" x="70" y="48">System Architecture Diagram</text>
+  <text class="subtitle" x="70" y="74">High-level view of routing, data, orchestration, grounding, and governance</text>
+  <rect class="box" x="70" y="120" width="180" height="72" />
+  <rect class="box" x="320" y="120" width="180" height="72" />
+  <rect class="box" x="570" y="120" width="180" height="72" />
+  <rect class="soft" x="840" y="104" width="570" height="170" />
+  <text class="group-label" x="870" y="128">Approved Data Layer</text>
+  <rect class="soft" x="880" y="150" width="150" height="86" />
+  <rect class="soft" x="1050" y="150" width="150" height="86" />
+  <rect class="soft" x="1220" y="150" width="150" height="86" />
+  <text class="text" x="160" y="156">User Question</text>
+  <text class="text" x="410" y="156">Streamlit UI</text>
+  <text class="text" x="660" y="156">Identity and Access Gate</text>
+  <text class="text-small" x="955" y="186"><tspan x="955" dy="0">Operational Data</tspan><tspan x="955" dy="18">transactions, accounts,</tspan><tspan x="955" dy="18">holdings, performance</tspan></text>
+  <text class="text-small" x="1125" y="186"><tspan x="1125" dy="0">Reference Knowledge</tspan><tspan x="1125" dy="18">rules, guidance,</tspan><tspan x="1125" dy="18">commentary</tspan></text>
+  <text class="text-small" x="1295" y="186"><tspan x="1295" dy="0">Product Catalog</tspan><tspan x="1295" dy="18">deterministic product</tspan><tspan x="1295" dy="18">and account inputs</tspan></text>
+  <rect class="box" x="620" y="350" width="240" height="76" />
+  <rect class="box" x="470" y="500" width="180" height="72" />
+  <rect class="box" x="690" y="500" width="180" height="72" />
+  <rect class="box" x="910" y="500" width="180" height="72" />
+  <rect class="box" x="690" y="640" width="180" height="72" />
+  <rect class="box" x="1120" y="500" width="180" height="72" />
+  <rect class="box" x="1120" y="640" width="180" height="72" />
+  <rect class="box" x="1340" y="500" width="100" height="72" />
+  <rect class="box" x="1340" y="640" width="100" height="72" />
+  <rect class="box" x="300" y="230" width="220" height="72" />
+  <text class="text-small" x="740" y="382"><tspan x="740" dy="0">Execution Layer</tspan><tspan x="740" dy="18">LangGraph or Python Fallback</tspan></text>
+  <text class="text" x="560" y="536">Query Routing</text>
+  <text class="text" x="780" y="536">Context Orchestration</text>
+  <text class="text" x="1000" y="536">Response Composition</text>
+  <text class="text" x="780" y="676">Analytics Tools</text>
+  <text class="text" x="1210" y="536">RAG Retrieval</text>
+  <text class="text" x="1210" y="676">LLM Layer</text>
+  <text class="text" x="1390" y="536">Output</text>
+  <text class="text" x="1390" y="676">Audit</text>
+  <text class="text" x="410" y="266">Safe Refusal</text>
+  <path class="arrow" d="M 250 156 L 320 156" />
+  <path class="arrow" d="M 500 156 L 570 156" />
+  <path class="deny" d="M 660 192 L 660 214 L 410 214 L 410 230" />
+  <path class="arrow" d="M 750 156 L 840 156" />
+  <path class="arrow-soft" d="M 955 236 L 955 310 L 680 310 L 680 350" />
+  <path class="arrow-soft" d="M 1125 236 L 1125 310 L 740 310 L 740 350" />
+  <path class="arrow-soft" d="M 1295 236 L 1295 310 L 800 310 L 800 350" />
+  <path class="arrow" d="M 720 426 L 575 494" />
+  <path class="arrow" d="M 760 426 L 780 494" />
+  <path class="arrow" d="M 650 536 L 690 536" />
+  <path class="arrow" d="M 870 536 L 910 536" />
+  <path class="arrow" d="M 780 572 L 780 640" />
+  <path class="arrow" d="M 1090 536 L 1120 536" />
+  <path class="arrow" d="M 1025 572 L 1170 632" />
+  <path class="arrow" d="M 1300 536 L 1340 536" />
+  <path class="arrow" d="M 1300 676 L 1340 676" />
+  <path class="arrow" d="M 1210 572 L 1210 640" />
+  <path class="arrow" d="M 1390 572 L 1390 640" />
+</svg>

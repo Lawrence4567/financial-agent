@@ -43,19 +43,7 @@ The local RAG index now includes chunks from:
 
 ## Reference-Layer Diagram
 
-```mermaid
-flowchart TD
-    A[account_knowledge.json] --> IDX[Local RAG Index]
-    B[planning_guidance.json] --> IDX
-    C[official_account_rules.json] --> IDX
-    D[market_context.json] --> IDX
-    E[market_commentary.json] --> IDX
-
-    IDX --> RET[retrieve_reference_context]
-    RET --> USE1[Knowledge explanation answers]
-    RET --> USE2[Performance explanation support]
-    RET --> USE3[Hybrid advisory answers]
-```
+See [Architecture Diagrams](../../docs/ARCHITECTURE_DIAGRAMS.md#7-reference-layer-diagram).
 
 ## Why This Separation Matters
 
@@ -69,4 +57,4 @@ That separation is helpful for:
 - clearer architecture diagrams
 - easier testing
 - safer grounding
-- better interview explanation
+- clearer explanation of the reference layer

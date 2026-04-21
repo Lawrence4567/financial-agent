@@ -1,21 +1,10 @@
 # AWS Deployment Guide
 
-This guide is written for **this repo exactly as it is now**.
+Use this document only for cloud deployment.
 
-## 1. What this app is
+For project overview, local setup, and architecture links, start from the root `README.md`.
 
-Your current app is a single `Streamlit` web app [网页应用] with:
-
-- one entry file: `01_your_canada_version/app/app_local.py`
-- local CSV and JSON data [本地数据] inside `01_your_canada_version/data/`
-- an optional `OpenAI API` call [接口调用]
-- an optional `Yahoo Finance` market-data request [市场数据请求]
-- no separate database [数据库] yet
-- no separate backend service [后端服务] yet
-
-That means your app is best treated as **one web service [单个 Web 服务]**.
-
-## 2. Best AWS path for this repo
+## 1. Best AWS path for this repo
 
 ### Recommended now
 
@@ -23,9 +12,9 @@ Use **AWS App Runner** if your AWS account can still create it.
 
 Why it fits:
 
-- very good for one web app
-- you do not need to manage servers [服务器]
-- you only need a build command, a start command, and environment variables [环境变量]
+- the repo deploys as one web service
+- you do not need to manage servers
+- you mainly need a build command, a start command, and environment variables
 
 ### Important date
 
@@ -34,19 +23,19 @@ AWS says **App Runner closes to new customers on April 30, 2026**.
 That means:
 
 - if your AWS account still has access before that date, App Runner is the fastest path
-- if your account does not have access, use the container path with `Dockerfile` plus ECS/Fargate or Lightsail Containers
+- if your account does not have access, use the `Dockerfile` path with ECS/Fargate or Lightsail Containers
 
 ### Future-proof path
 
-I also added a `Dockerfile` at the repo root. That gives you a container [容器] version of the app, which is useful later for:
+The repo also includes a `Dockerfile` at the root. That gives you a container version of the app, which is useful later for:
 
 - Amazon ECS / Fargate
 - Amazon Lightsail Containers
-- other container platforms [容器平台]
+- other container platforms
 
-## 3. Environment variables for this app
+## 2. Environment variables for this app
 
-These are the variables [变量] your app uses:
+These are the main variables the app uses:
 
 - `OPENAI_API_KEY`
 - `OPENAI_MODEL`
@@ -64,14 +53,14 @@ Recommended values:
 
 Notes:
 
-- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs in rules-only mode [仅规则模式].
-- `FINANCE_DATA_DIR` is optional in many cases because your code already has a default path [默认路径].
+- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs in rules-only mode.
+- `FINANCE_DATA_DIR` is optional in many cases because the code already has a default path.
 
-## 4. Fastest AWS deployment: App Runner from source code
+## 3. Fastest AWS deployment: App Runner from source code
 
 ### Step 1. Push your repo to GitHub
 
-App Runner can deploy directly from a GitHub repository [代码仓库].
+App Runner can deploy directly from a GitHub repository.
 
 Make sure these files are pushed:
 
@@ -79,7 +68,7 @@ Make sure these files are pushed:
 - `01_your_canada_version/requirements-local.txt`
 - `01_your_canada_version/data/...`
 
-## Step 2. Open AWS App Runner
+### Step 2. Open AWS App Runner
 
 In the AWS Console:
 
@@ -87,7 +76,7 @@ In the AWS Console:
 2. Click `Create service`
 3. Choose `Source code repository`
 
-## Step 3. Connect GitHub
+### Step 3. Connect GitHub
 
 In App Runner:
 
@@ -95,9 +84,9 @@ In App Runner:
 2. Choose your repository
 3. Choose the branch you want to deploy
 
-## Step 4. Set the source directory
+### Step 4. Set the source directory
 
-This repo is not a flat single-app repo. Your app lives in a subfolder [子文件夹].
+This repo is not a flat single-app repo. The app lives in a subfolder.
 
 Set:
 
@@ -105,7 +94,7 @@ Set:
 
 This is important because App Runner runs build and start commands from that folder.
 
-## Step 5. Configure build settings
+### Step 5. Configure build settings
 
 Use these values:
 
@@ -116,10 +105,10 @@ Use these values:
 
 Why `8080`?
 
-- App Runner asks for a listening port [监听端口]
+- App Runner asks for a listening port
 - `Streamlit` normally uses `8501`, but on App Runner it is easier to make the app listen on the port you configure
 
-## Step 6. Add environment variables
+### Step 6. Add environment variables
 
 In the App Runner environment variable section, add:
 
@@ -129,24 +118,24 @@ In the App Runner environment variable section, add:
 
 If you want to test the app without OpenAI first, you can skip `OPENAI_API_KEY`.
 
-## Step 7. Choose service size
+### Step 7. Choose service size
 
-Start small [从小开始] first.
+Start small first.
 
-Because this app loads local data, creates charts, and may call OpenAI, a very small instance can feel slow. If the UI is sluggish [卡顿], increase memory [内存] first.
+Because this app loads local data, creates charts, and may call OpenAI, a very small instance can feel slow. If the UI feels sluggish, increase memory first.
 
-## Step 8. Deploy
+### Step 8. Deploy
 
 Click `Create & deploy`.
 
 AWS will:
 
 - pull your code
-- install dependencies [依赖]
+- install dependencies
 - run the start command
-- give you a public URL [公开网址]
+- give you a public URL
 
-## Step 9. Test the app
+### Step 9. Test the app
 
 After deployment finishes:
 
@@ -161,9 +150,9 @@ Good first test questions:
 - `Based on my profile, should I focus on FHSA, TFSA, or RRSP?`
 - `Show me a simple ETF market snapshot.`
 
-## Step 10. If deployment fails
+### Step 10. If deployment fails
 
-Check App Runner logs [日志] first.
+Check App Runner logs first.
 
 The most likely beginner issues are:
 
@@ -173,13 +162,13 @@ The most likely beginner issues are:
 - dependency install failure
 - app listening on the wrong port
 
-For this repo, the first thing I would re-check is:
+For this repo, the first thing to re-check is:
 
 - `Source directory` must be `01_your_canada_version`
 
-## 5. Local container test with the Dockerfile I added
+## 4. Local container test with the Dockerfile
 
-Even if you deploy with App Runner first, you should understand the container path [容器路径].
+Even if you deploy with App Runner first, you should understand the container path.
 
 From the repo root:
 
@@ -201,21 +190,21 @@ Why this matters:
 
 - if App Runner is unavailable in your account after April 30, 2026
 - if you later move to ECS or Lightsail
-- if you want stable local-to-cloud parity [本地与云环境一致]
+- if you want stable local-to-cloud parity
 
-## 6. How your current code maps to AWS
+## 5. How the current code maps to AWS
 
-This is the mental model [思维模型]:
+This is the mental model:
 
 - `Streamlit app` = the web service
 - `local CSV/JSON files` = files bundled inside the deployed app image
-- `OPENAI_API_KEY` = secret [机密]
-- `Yahoo Finance` calls = outbound internet access [对外网络访问]
-- `reference_rag_index.json` = prebuilt artifact [预生成产物], so AWS does not need a separate vector database [向量数据库] yet
+- `OPENAI_API_KEY` = secret
+- `Yahoo Finance` calls = outbound internet access
+- `reference_rag_index.json` = prebuilt artifact, so AWS does not need a separate vector database yet
 
-This is why your app is still relatively easy to deploy.
+This is why the app is still relatively easy to deploy.
 
-## 7. What I recommend you do next
+## 6. What I recommend you do next
 
 Follow this order:
 
@@ -226,7 +215,7 @@ Follow this order:
 5. Add `OPENAI_API_KEY`
 6. Test one LLM question
 
-## 8. Official AWS references
+## 7. Official AWS references
 
 - App Runner getting started: https://docs.aws.amazon.com/apprunner/latest/dg/getting-started.html
 - App Runner source code services: https://docs.aws.amazon.com/apprunner/latest/dg/service-source-code.html

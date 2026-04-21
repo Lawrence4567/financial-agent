@@ -1,53 +1,69 @@
 # Canada Workspace Map
 
-This folder contains the Canada-focused advisory workspace that is designed for your portfolio and interview story.
+Use this file as a quick directory guide for `01_your_canada_version/`.
 
-## app/
+For project overview and local setup, go back to the root `README.md`.
+For detailed architecture, read `SYSTEM_ARCHITECTURE.md`.
 
-Contains the runnable application code.
+## Workspace Layout
+
+### `app/`
+
+Runnable application code:
 
 - `app_local.py`: Streamlit UI and page layout
-- `local_financial_qa.py`: summary building, routing, tool execution, response generation, compliance, and audit logging
-- `data_sources.py`: data source layer for transactions, accounts, holdings, performance, and market context
-- `demo_governance.py`: request metadata, identity/access checks, compliance guardrails, and audit logging
-- `analytics_tools.py`: portfolio performance attribution, exposure breakdown, and volatility analysis
-- `recommendation_engine.py`: deterministic product scoring and recommendation ranking
+- `local_financial_qa.py`: main controller for routing, tools, generation, compliance, and audit logging
+- `data_sources.py`: data loading and market snapshot access
+- `demo_governance.py`: internal request records, access checks, guardrails, and audit logging
+- `analytics_tools.py`: portfolio attribution, exposure, and volatility analysis
+- `recommendation_engine.py`: deterministic product scoring and ranking
 - `query_router.py`: route classification
-- `response_orchestrator.py`: fetch RAG context and market data only when needed
-- `rag_pipeline.py`: local chunking, embeddings, and retrieval
+- `response_orchestrator.py`: load RAG and market context only when needed
+- `rag_pipeline.py`: local chunking, embeddings, index build, and retrieval
+- `langgraph_flow.py`: workflow orchestration path
+- `prompt_builder.py`: structured prompt assembly
 
-## data/
+### `data/artifacts_canada/`
 
-Contains the client-case data and reference content.
+Operational and generated data:
 
-- `artifacts_canada/user_info.csv`: household profile
-- `artifacts_canada/cat.csv`: transaction history
-- `artifacts_canada/account_summary.csv`: account balances and liquidity profile
-- `artifacts_canada/portfolio_holdings.csv`: current holdings and asset mix
-- `artifacts_canada/portfolio_performance.csv`: monthly portfolio performance history
-- `artifacts_canada/product_catalog.csv`: representative Canadian banking and investing categories
-- `reference_canada/account_knowledge.json`: account and product reference knowledge
-- `reference_canada/planning_guidance.json`: planning rules and budgeting guidance
-- `reference_canada/official_account_rules.json`: official-rule style finance summaries
-- `reference_canada/market_context.json`: watchlist and market-layer configuration
-- `reference_canada/market_commentary.json`: market narrative and monthly explanation notes
-- `artifacts_canada/reference_rag_index.json`: generated local RAG index
-- `artifacts_canada/audit_logs/`: request audit traces
+- `user_info.csv`: household profile
+- `cat.csv`: transaction history
+- `account_summary.csv`: balances and liquidity profile
+- `portfolio_holdings.csv`: current holdings and asset mix
+- `portfolio_performance.csv`: monthly performance history
+- `product_catalog.csv`: representative Canadian products
+- `reference_rag_index.json`: generated local RAG index
+- `audit_logs/`: request audit traces
 
-## docs/
+### `data/reference_canada/`
 
-Contains local setup notes and design references.
+Reference knowledge used by rules and RAG:
 
-- `README_LOCAL.md`: how to run the local advisory workspace
+- `account_knowledge.json`: account and product knowledge
+- `planning_guidance.json`: planning rules and budgeting guidance
+- `official_account_rules.json`: official-rule style summaries
+- `market_context.json`: watchlist and market-layer configuration
+- `market_commentary.json`: market narrative and month-level commentary
+
+### `docs/`
+
+Supporting documentation:
+
+- `ARCHITECTURE_DIAGRAMS.md`: all project diagrams in one place
 - `PROJECT_MAP_CANADA.md`: this file
+- `SYSTEM_ARCHITECTURE.md`: detailed design and runtime flow
+- `AWS_DEPLOYMENT.md`: cloud deployment notes
 
-## Recommended reading order
+## Recommended Reading Order
 
 1. `app/app_local.py`
 2. `app/local_financial_qa.py`
 3. `app/demo_governance.py`
-4. `app/analytics_tools.py`
-5. `app/query_router.py`
-6. `app/rag_pipeline.py`
-7. `data/artifacts_canada/portfolio_performance.csv`
-8. `data/reference_canada/market_commentary.json`
+4. `app/query_router.py`
+5. `app/response_orchestrator.py`
+6. `app/analytics_tools.py`
+7. `app/rag_pipeline.py`
+8. `app/langgraph_flow.py`
+9. `data/artifacts_canada/portfolio_performance.csv`
+10. `data/reference_canada/market_commentary.json`

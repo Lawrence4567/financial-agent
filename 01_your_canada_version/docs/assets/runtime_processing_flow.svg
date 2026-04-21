@@ -1,0 +1,104 @@
+<svg width="1450" height="640" viewBox="0 0 1450 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Runtime Processing Flow</title>
+  <desc id="desc">Interview-ready runtime processing flow shown across three horizontal rows, with five boxes per row and vertical handoff arrows between rows.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f1115; }
+      .title { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 28px; font-weight: 600; }
+      .subtitle { fill: #9ca3af; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; }
+      .box { fill: #1f1f1f; stroke: #d4d4d8; stroke-width: 2; rx: 12; }
+      .text { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 17px; text-anchor: middle; dominant-baseline: middle; }
+      .text-small { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; text-anchor: middle; }
+      .arrow { fill: none; stroke: #d4d4d8; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5.8" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d4d4d8" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1450" height="640" />
+
+  <text class="title" x="70" y="48">Runtime Processing Flow</text>
+  <text class="subtitle" x="70" y="74">Single-request lifecycle from UI entry to final response</text>
+
+  <!-- Layout constants: box width 220, height 76 -->
+  <!-- Columns -->
+  <!-- c1=70, c2=340, c3=610, c4=880, c5=1150 -->
+  <!-- Rows -->
+  <!-- r1=110, r2=300, r3=490 -->
+
+  <!-- Row 1 -->
+  <rect class="box" x="70" y="110" width="220" height="76" />
+  <rect class="box" x="340" y="110" width="220" height="76" />
+  <rect class="box" x="610" y="110" width="220" height="76" />
+  <rect class="box" x="880" y="110" width="220" height="76" />
+  <rect class="box" x="1150" y="110" width="220" height="76" />
+
+  <text class="text" x="180" y="148">User</text>
+  <text class="text" x="450" y="148">Streamlit UI</text>
+  <text class="text" x="720" y="148">Internal Request Record</text>
+  <text class="text-small" x="990" y="140">
+    <tspan x="990" dy="0">analyze_financial_data</tspan>
+    <tspan x="990" dy="18">_local</tspan>
+  </text>
+  <text class="text-small" x="1260" y="140">
+    <tspan x="1260" dy="0">Load Minimal Identity</tspan>
+    <tspan x="1260" dy="18">Context</tspan>
+  </text>
+
+  <!-- Row 2 -->
+  <rect class="box" x="70" y="300" width="220" height="76" />
+  <rect class="box" x="340" y="300" width="220" height="76" />
+  <rect class="box" x="610" y="300" width="220" height="76" />
+  <rect class="box" x="880" y="300" width="220" height="76" />
+  <rect class="box" x="1150" y="300" width="220" height="76" />
+
+  <text class="text" x="180" y="338">Context Gathering</text>
+  <text class="text" x="450" y="338">Intent Router</text>
+  <text class="text-small" x="720" y="330">
+    <tspan x="720" dy="0">LangGraph or Python</tspan>
+    <tspan x="720" dy="18">Fallback</tspan>
+  </text>
+  <text class="text" x="990" y="338">Load Full Local Data</text>
+  <text class="text" x="1260" y="338">Identity / Access Check</text>
+
+  <!-- Row 3 -->
+  <rect class="box" x="70" y="490" width="220" height="76" />
+  <rect class="box" x="340" y="490" width="220" height="76" />
+  <rect class="box" x="610" y="490" width="220" height="76" />
+  <rect class="box" x="880" y="490" width="220" height="76" />
+  <rect class="box" x="1150" y="490" width="220" height="76" />
+
+  <text class="text" x="180" y="528">Analytics Tools</text>
+  <text class="text-small" x="450" y="520">
+    <tspan x="450" dy="0">Rules or LLM</tspan>
+    <tspan x="450" dy="18">Generation</tspan>
+  </text>
+  <text class="text" x="720" y="528">Compliance Check</text>
+  <text class="text" x="990" y="528">Audit Log</text>
+  <text class="text" x="1260" y="528">Final Response</text>
+
+  <!-- Horizontal arrows row 1 -->
+  <path class="arrow" d="M 290 148 L 340 148" />
+  <path class="arrow" d="M 560 148 L 610 148" />
+  <path class="arrow" d="M 830 148 L 880 148" />
+  <path class="arrow" d="M 1100 148 L 1150 148" />
+
+  <!-- Row 1 handoff to row 2 last box -->
+  <path class="arrow" d="M 1260 186 L 1260 300" />
+
+  <!-- Horizontal arrows row 2 -->
+  <path class="arrow" d="M 290 338 L 340 338" />
+  <path class="arrow" d="M 560 338 L 610 338" />
+  <path class="arrow" d="M 830 338 L 880 338" />
+  <path class="arrow" d="M 1100 338 L 1150 338" />
+
+  <!-- Row 2 handoff to row 3 first box -->
+  <path class="arrow" d="M 180 376 L 180 490" />
+
+  <!-- Horizontal arrows row 3 -->
+  <path class="arrow" d="M 290 528 L 340 528" />
+  <path class="arrow" d="M 560 528 L 610 528" />
+  <path class="arrow" d="M 830 528 L 880 528" />
+  <path class="arrow" d="M 1100 528 L 1150 528" />
+</svg>

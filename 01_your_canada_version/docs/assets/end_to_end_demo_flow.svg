@@ -1,0 +1,53 @@
+<svg width="1480" height="760" viewBox="0 0 1480 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">End-to-End Demo Flow</title>
+  <desc id="desc">Sequence-style flow for a realistic performance explanation request.</desc>
+  <defs>
+    <style>
+      .bg { fill: #0f1115; }
+      .title { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 28px; font-weight: 600; }
+      .subtitle { fill: #9ca3af; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; }
+      .lane { stroke: #4b5563; stroke-width: 1.3; stroke-dasharray: 6 6; }
+      .label { fill: #f3f4f6; font-family: Segoe UI, Arial, sans-serif; font-size: 15px; font-weight: 600; text-anchor: middle; }
+      .arrow { fill: none; stroke: #d4d4d8; stroke-width: 1.9; marker-end: url(#arrowhead); }
+      .arrow-soft { fill: none; stroke: #d4d4d8; stroke-width: 1.9; marker-end: url(#arrowhead); }
+      .note { fill: #171923; stroke: #d4d4d8; stroke-width: 1.4; rx: 10; }
+      .note-text { fill: #e5e7eb; font-family: Segoe UI, Arial, sans-serif; font-size: 13px; text-anchor: middle; }
+    </style>
+    <marker id="arrowhead" markerWidth="7" markerHeight="7" refX="5.8" refY="3.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 7 3.5 L 0 7 z" fill="#d4d4d8" /></marker>
+  </defs>
+  <rect class="bg" width="1480" height="760" />
+  <text class="title" x="70" y="48">End-to-End Demo Flow</text>
+  <text class="subtitle" x="70" y="74">Example question: Why did my portfolio go down this month?</text>
+  <text class="label" x="100" y="120">User</text><line class="lane" x1="100" y1="140" x2="100" y2="700" />
+  <text class="label" x="260" y="120">UI</text><line class="lane" x1="260" y1="140" x2="260" y2="700" />
+  <text class="label" x="420" y="120">App</text><line class="lane" x1="420" y1="140" x2="420" y2="700" />
+  <text class="label" x="580" y="120">Access</text><line class="lane" x1="580" y1="140" x2="580" y2="700" />
+  <text class="label" x="740" y="120">Router</text><line class="lane" x1="740" y1="140" x2="740" y2="700" />
+  <text class="label" x="900" y="120">Context</text><line class="lane" x1="900" y1="140" x2="900" y2="700" />
+  <text class="label" x="1060" y="120">Tools</text><line class="lane" x1="1060" y1="140" x2="1060" y2="700" />
+  <text class="label" x="1220" y="120">LLM</text><line class="lane" x1="1220" y1="140" x2="1220" y2="700" />
+  <text class="label" x="1380" y="120">Audit</text><line class="lane" x1="1380" y1="140" x2="1380" y2="700" />
+  <path class="arrow" d="M 100 180 L 260 180" />
+  <path class="arrow" d="M 260 220 L 420 220" />
+  <path class="arrow" d="M 420 260 L 580 260" />
+  <path class="arrow-soft" d="M 580 300 L 420 300" />
+  <path class="arrow" d="M 420 340 L 740 340" />
+  <path class="arrow-soft" d="M 740 380 L 420 380" />
+  <path class="arrow" d="M 420 420 L 900 420" />
+  <path class="arrow-soft" d="M 900 460 L 1060 460" />
+  <path class="arrow-soft" d="M 1060 500 L 900 500" />
+  <path class="arrow" d="M 420 540 L 1220 540" />
+  <path class="arrow-soft" d="M 1220 580 L 420 580" />
+  <path class="arrow" d="M 420 620 L 1380 620" />
+  <path class="arrow-soft" d="M 1380 660 L 260 660" />
+  <rect class="note" x="125" y="160" width="110" height="34" /><text class="note-text" x="180" y="182">Ask question</text>
+  <rect class="note" x="285" y="200" width="110" height="34" /><text class="note-text" x="340" y="222">Submit query</text>
+  <rect class="note" x="445" y="240" width="110" height="34" /><text class="note-text" x="500" y="262">Validate scope</text>
+  <rect class="note" x="445" y="320" width="270" height="34" /><text class="note-text" x="580" y="342">Route decision: performance explanation</text>
+  <rect class="note" x="500" y="400" width="320" height="34" /><text class="note-text" x="660" y="422">Gather needed market and reference context</text>
+  <rect class="note" x="930" y="440" width="100" height="34" /><text class="note-text" x="980" y="462">Run analysis</text>
+  <rect class="note" x="700" y="520" width="240" height="34" /><text class="note-text" x="820" y="542">Build grounded explanation</text>
+  <rect class="note" x="980" y="560" width="160" height="34" /><text class="note-text" x="1060" y="582">Draft answer</text>
+  <rect class="note" x="900" y="600" width="240" height="34" /><text class="note-text" x="1020" y="622">Write audit event</text>
+  <rect class="note" x="740" y="640" width="210" height="34" /><text class="note-text" x="845" y="662">Return final response</text>
+</svg>

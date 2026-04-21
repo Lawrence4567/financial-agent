@@ -1057,8 +1057,7 @@ def format_rag_answer_from_chunks(query: str, retrieval_result: dict) -> str:
         f"- Retrieval mode: {retrieval_result.get('retrieval_mode', 'unknown')}\n"
         f"- Your question: {query}\n\n"
         "Relevant source notes:\n"
-        f"{chr(10).join(supporting_points)}\n\n"
-        "Open the retrieved sources panel below to see the supporting snippets."
+        f"{chr(10).join(supporting_points)}"
     )
 
 
@@ -1846,7 +1845,7 @@ def analyze_financial_data_local(
                 summary=summary,
                 chat_history=normalized_history,
                 request_metadata=effective_request_metadata,
-                verify_access_fn=verify_access_from_summary,
+                access_decision=access_decision,
                 run_tools_fn=run_analysis_tools_for_route,
                 execute_route_fn=execute_route_analysis,
                 compliance_fn=apply_compliance_to_answer_payload,
