@@ -1,0 +1,16 @@
+version: 1.0
+runtime: python311
+
+build:
+  commands:
+    build:
+      - echo "App Runner build phase ready"
+
+run:
+  runtime-version: 3.11
+  pre-run:
+    - pip3 install --upgrade pip setuptools wheel
+    - pip3 install -r requirements-local.txt
+  command: python3 -m streamlit run app/app_local.py --server.address 0.0.0.0 --server.port 8080 --browser.gatherUsageStats false
+  network:
+    port: 8080
