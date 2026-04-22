@@ -35,7 +35,9 @@ class DemoFlowTests(unittest.TestCase):
         self.assertEqual(result["route_label"], "Performance explanation")
         self.assertIn("2025-06", result["answer"])
         self.assertIn("2025-04", result["answer"])
-        self.assertEqual(result["tool_outputs"]["tool_name"], "portfolio_performance_toolkit")
+        self.assertIn("portfolio_performance_toolkit", result["tool_outputs"]["tools_used"])
+        self.assertEqual(result["intent"]["domain"], "performance")
+        self.assertEqual(result["capability_plan"]["ui_route_label"], "Performance explanation")
         self.assertTrue(result["access_decision"]["allowed"])
 
     def test_access_is_denied_for_wrong_user(self) -> None:

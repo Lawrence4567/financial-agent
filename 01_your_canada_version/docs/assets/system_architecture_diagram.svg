@@ -1,6 +1,6 @@
 <svg width="1480" height="760" viewBox="0 0 1480 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
   <title id="title">System Architecture Diagram</title>
-  <desc id="desc">High-level architecture showing user input, access control, approved data layer, orchestration, tools, RAG, LLM, compliance, logging, and final output.</desc>
+  <desc id="desc">High-level architecture showing user input, access control, approved data, intent parsing, capability planning, tools, retrieval, LLM synthesis, compliance, logging, and final output.</desc>
   <defs>
     <style>
       .bg { fill: #0f1115; }
@@ -21,7 +21,7 @@
   </defs>
   <rect class="bg" width="1480" height="760" />
   <text class="title" x="70" y="48">System Architecture Diagram</text>
-  <text class="subtitle" x="70" y="74">High-level view of routing, data, orchestration, grounding, and governance</text>
+  <text class="subtitle" x="70" y="74">High-level view of intent parsing, planning, evidence, and governance</text>
   <rect class="box" x="70" y="120" width="180" height="72" />
   <rect class="box" x="320" y="120" width="180" height="72" />
   <rect class="box" x="570" y="120" width="180" height="72" />
@@ -47,12 +47,12 @@
   <rect class="box" x="1340" y="640" width="100" height="72" />
   <rect class="box" x="300" y="230" width="220" height="72" />
   <text class="text-small" x="740" y="382"><tspan x="740" dy="0">Execution Layer</tspan><tspan x="740" dy="18">LangGraph or Python Fallback</tspan></text>
-  <text class="text" x="560" y="536">Query Routing</text>
-  <text class="text" x="780" y="536">Context Orchestration</text>
-  <text class="text" x="1000" y="536">Response Composition</text>
+  <text class="text" x="560" y="536">Intent Parsing</text>
+  <text class="text" x="780" y="536">Capability Planning</text>
+  <text class="text" x="1000" y="536">Evidence + Answer</text>
   <text class="text" x="780" y="676">Analytics Tools</text>
-  <text class="text" x="1210" y="536">RAG Retrieval</text>
-  <text class="text" x="1210" y="676">LLM Layer</text>
+  <text class="text" x="1210" y="536">Retrieval Backend</text>
+  <text class="text" x="1210" y="676">LLM Synthesis</text>
   <text class="text" x="1390" y="536">Output</text>
   <text class="text" x="1390" y="676">Audit</text>
   <text class="text" x="410" y="266">Safe Refusal</text>

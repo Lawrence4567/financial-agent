@@ -15,6 +15,13 @@ from pydantic import BaseModel, Field
 
 from conversation_memory import normalize_chat_history
 from data_sources import FinancialContext, fetch_market_snapshot, load_financial_context, load_user_info
+from intent_engine import (
+    CapabilityPlan,
+    IntentSchema,
+    capability_plan_to_route_decision,
+    parse_intent,
+    plan_capabilities,
+)
 from langchain_adapter import invoke_langchain_text, should_use_langchain_backend
 from langgraph_flow import run_langgraph_analysis_flow, should_use_langgraph_flow
 from prompt_builder import build_general_llm_request, build_rag_llm_request
@@ -31,7 +38,7 @@ from query_router import (
     QueryRouteDecision,
     route_query,
 )
-from query_understanding import extract_spending_category_match, normalize_query_text
+from query_understanding import extract_spending_category_match, extract_spending_scope, normalize_query_text
 from rag_pipeline import retrieve_reference_context
 from recommendation_engine import score_product_recommendations
 from response_orchestrator import OrchestratedContext, gather_orchestrated_context
@@ -414,6 +421,37 @@ def format_category_spending_answer(summary: dict, category_match: dict) -> str:
     )
 
 
+def format_non_category_spending_answer(summary: dict, category_match: dict) -> str:
+    category_totals = summary.get("category_spending_totals", {})
+    excluded_categories = set(category_match.get("categories", []))
+    label = category_match.get("label", "that category")
+
+    kept_breakdown = [
+        (category, float(amount))
+        for category, amount in category_totals.items()
+        if category not in excluded_categories
+    ]
+    total_amount = sum(amount for _, amount in kept_breakdown)
+
+    if total_amount <= 0:
+        return (
+            f"If you mean spending outside `{label}`, I could not find any remaining debit categories in the current six-month client record (January 2025 to June 2025)."
+        )
+
+    top_lines = "\n".join(
+        f"- {category}: {amount:,.2f}"
+        for category, amount in kept_breakdown[:6]
+    )
+    excluded_lines = ", ".join(sorted(excluded_categories))
+    return (
+        f"If you mean spending outside `{label}`, the six-month client record (January 2025 to June 2025) shows `{total_amount:,.2f}` spent on all other categories.\n\n"
+        f"- Excluded categories: {excluded_lines}\n"
+        "Largest remaining categories:\n"
+        f"{top_lines}\n\n"
+        "This interpretation treats your question as an exclusion filter rather than spending on the category itself."
+    )
+
+
 def format_reason_tag(tag: str) -> str:
     return tag.replace("_", " ")
 
@@ -491,6 +529,54 @@ def format_rule_based_recommendation(summary: dict) -> str:
         f"{', then ' + top_names[2] if len(top_names) > 2 else ''}.\n\n"
         f"Why this order: the rules engine matched {tag_text}, and your strongest near-term need is still a first-home goal plus stronger liquid savings.\n\n"
         "The recommendation cards below show the best starting options, what each one is good for, and what to watch out for."
+    )
+
+
+def is_negative_recommendation_query(query: str) -> bool:
+    query_lower = normalize_query_text(query)
+    return any(
+        phrase in query_lower
+        for phrase in [
+            "not recommend",
+            "do not recommend",
+            "don't recommend",
+            "would not recommend",
+            "wouldn't recommend",
+            "avoid",
+            "not choose",
+            "should i avoid",
+        ]
+    )
+
+
+def format_negative_recommendation_answer(summary: dict) -> str:
+    candidates = [
+        item
+        for item in summary.get("scored_recommendations", [])
+        if item["category"] not in {"Chequing", "High-Interest Savings"}
+    ]
+    lowest_ranked = sorted(candidates, key=lambda item: item["score"])[:3]
+    if not lowest_ranked:
+        return (
+            "I would avoid treating any product as universally bad. A safer reading is which products are lower priority right now for this specific client profile."
+        )
+
+    lead = lowest_ranked[0]
+    lead_reason = (
+        lead["reasons"][-1]
+        if lead.get("reasons")
+        else "it is less aligned with the current goal mix than the top-ranked options."
+    )
+    bullets = "\n".join(
+        f"- {item['product_name']}: lower priority right now because its fit is weaker than FHSA, TFSA, or liquid savings for this client case."
+        for item in lowest_ranked
+    )
+    return (
+        "I would frame this as `what should not be prioritised right now`, not `what is always bad`.\n\n"
+        f"The product I would be least likely to recommend as a first step is `{lead['product_name']}` because {lead_reason}\n\n"
+        "Lower-priority options for the current profile are:\n"
+        f"{bullets}\n\n"
+        "That does not mean these products are wrong forever. It means they are less suitable than the current top priorities for this user's near-term goals."
     )
 
 
@@ -1041,6 +1127,119 @@ def format_reference_sources(chunks: list[dict]) -> list[dict]:
     return sources
 
 
+def build_answer_citations(
+    summary: dict,
+    tool_outputs: dict | None,
+    retrieval_result: dict | None = None,
+    market_snapshot: dict | None = None,
+) -> list[dict]:
+    tool_outputs = tool_outputs or {}
+    tools_used = tool_outputs.get("tools_used", [])
+    source_overview = summary.get("data_source_overview", {})
+    citations: list[dict] = []
+
+    def add_citation(
+        *,
+        kind: str,
+        label: str,
+        used_for: str,
+        source: str | None = None,
+        section: str | None = None,
+        score: float | None = None,
+        snippet: str | None = None,
+    ) -> None:
+        citations.append(
+            {
+                "kind": kind,
+                "label": label,
+                "used_for": used_for,
+                "source": source,
+                "section": section,
+                "score": score,
+                "snippet": snippet,
+            }
+        )
+
+    if "spending_tool" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Transaction history",
+            used_for="Spending totals, category mapping, and cash-flow analysis.",
+            source=os.path.join(source_overview.get("user_data", ""), "cat.csv"),
+        )
+    if "account_summary_tool" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Account summary",
+            used_for="Balances, liquidity, and household account overview.",
+            source=source_overview.get("account_data"),
+        )
+    if "portfolio_tool" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Portfolio holdings",
+            used_for="Allocation, holdings, and positioning explanations.",
+            source=source_overview.get("portfolio_data"),
+        )
+    if "portfolio_performance_toolkit" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Portfolio performance history",
+            used_for="Return-change explanation and month-level performance analysis.",
+            source=source_overview.get("performance_data"),
+        )
+    if "recommendation_engine" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Product catalog and profile inputs",
+            used_for="Deterministic product scoring, priority order, and recommendation cards.",
+            source=source_overview.get("product_data"),
+        )
+    if "architecture_context" in tools_used:
+        add_citation(
+            kind="local_dataset",
+            label="Workspace source overview",
+            used_for="Architecture and data-source explanation.",
+            source=source_overview.get("reference_data"),
+        )
+    if "market_snapshot" in tools_used:
+        add_citation(
+            kind="market_feed",
+            label="Market snapshot feed",
+            used_for="ETF watchlist pricing and short-term market context.",
+            source=(
+                (market_snapshot or {}).get("provider")
+                or source_overview.get("external_market_data")
+                or source_overview.get("market_data")
+            ),
+        )
+
+    for chunk in (retrieval_result or {}).get("chunks", [])[:3]:
+        add_citation(
+            kind="retrieved_reference",
+            label=chunk.get("title", "Retrieved reference"),
+            used_for="Grounded rule, eligibility, or market-commentary support.",
+            source=chunk.get("source_file"),
+            section=chunk.get("section"),
+            score=chunk.get("score"),
+            snippet=chunk.get("snippet"),
+        )
+
+    deduped: list[dict] = []
+    seen: set[tuple[str | None, str | None, str | None]] = set()
+    for citation in citations:
+        key = (
+            citation.get("kind"),
+            citation.get("label"),
+            citation.get("source"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(citation)
+    return deduped
+
+
 def format_rag_answer_from_chunks(query: str, retrieval_result: dict) -> str:
     chunks = retrieval_result.get("chunks", [])
     if not chunks:
@@ -1073,6 +1272,7 @@ def answer_from_rules(query: str, summary: dict) -> str:
     reference_knowledge = summary["reference_knowledge"]
     budgeting_guidelines = reference_knowledge.get("planning_guidance", {}).get("budgeting_guidelines", [])
     category_match = extract_spending_category_match(query)
+    spending_scope = extract_spending_scope(query, category_match=category_match)
     asks_account_count = ("how many" in query_lower and "account" in query_lower) or "account count" in query_lower
     asks_cash_position = any(
         term in query_lower
@@ -1106,12 +1306,16 @@ def answer_from_rules(query: str, summary: dict) -> str:
         return format_market_change_explanation_answer(summary, fetch_market_snapshot(), query=query)
 
     if category_match and is_spending_query(query):
+        if spending_scope and spending_scope["mode"] == "exclude":
+            return format_non_category_spending_answer(summary, category_match)
         return format_category_spending_answer(summary, category_match)
 
     if is_spending_query(query):
         return format_spending_summary_answer(summary)
 
     if is_recommendation_query(query):
+        if is_negative_recommendation_query(query):
+            return format_negative_recommendation_answer(summary)
         return format_account_priority_answer(summary) if all(term in query_lower for term in ["fhsa", "tfsa", "rrsp"]) else format_rule_based_recommendation(summary)
 
     if any(word in query_lower for word in ["spending", "spend", "spent", "expense", "habit", "cost", "pay", "paid"]):
@@ -1191,7 +1395,7 @@ def answer_with_rag(
             "request_preview": None,
         }
 
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     request_preview = build_rag_llm_request(
         query=query,
         retrieval_result=retrieval_result,
@@ -1288,9 +1492,11 @@ def answer_with_llm(
     summary: dict,
     route_label: str = "General LLM answer",
     chat_history: list[dict] | None = None,
+    retrieval_result: dict | None = None,
     market_snapshot: dict | None = None,
     extra_sections: dict | None = None,
     fallback_answer: str | None = None,
+    instruction_suffix: str | None = None,
 ) -> dict:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key or OpenAI is None:
@@ -1301,17 +1507,19 @@ def answer_with_llm(
             "request_preview": None,
         }
 
-    model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     request_preview = build_general_llm_request(
         query=query,
         summary=summary,
         instructions=(
             f"{LLM_INSTRUCTIONS} "
             "When the summary includes scored_recommendations, keep the recommendation order and priority labels consistent with that list."
+            f"{' ' + instruction_suffix if instruction_suffix else ''}"
         ),
         model=model,
         route_label=route_label,
         chat_history=chat_history,
+        retrieval_result=retrieval_result,
         market_snapshot=market_snapshot,
         extra_sections=extra_sections,
     )
@@ -1488,6 +1696,448 @@ def build_performance_extra_sections(
     }
 
 
+def build_spending_tool_output(query: str, summary: dict) -> dict:
+    category_match = extract_spending_category_match(query)
+    spending_scope = extract_spending_scope(query, category_match=category_match)
+    default_answer = answer_from_rules(query, summary)
+    return {
+        "tool_name": "spending_tool",
+        "query_scope": spending_scope or {"mode": "summarize", "label": None, "categories": []},
+        "category_match": category_match,
+        "sample_window": "January 2025 to June 2025",
+        "total_debits": summary["total_debits"],
+        "total_credits": summary["total_credits"],
+        "net_cash_flow": summary["net_cash_flow"],
+        "average_monthly_spending": summary["average_monthly_spending"],
+        "top_spending_categories": summary["top_spending_categories"],
+        "category_spending_totals": summary.get("category_spending_totals", {}),
+        "monthly_spending": summary["monthly_spending"],
+        "default_answer_draft": default_answer,
+    }
+
+
+def build_recommendation_tool_output(query: str, summary: dict) -> dict:
+    negative_query = is_negative_recommendation_query(query)
+    default_answer = (
+        format_negative_recommendation_answer(summary)
+        if negative_query
+        else format_account_priority_answer(summary)
+        if all(term in query.lower() for term in ["fhsa", "tfsa", "rrsp"])
+        else format_rule_based_recommendation(summary)
+    )
+    cards = build_recommendation_cards(summary)
+    return {
+        "tool_name": "recommendation_engine",
+        "query_polarity": "negative_recommendation" if negative_query else "positive_recommendation",
+        "priority_reason": summary.get("priority_reason"),
+        "reason_tags": summary.get("recommendation_reason_tags", []),
+        "scored_recommendations": summary.get("scored_recommendations", [])[:5],
+        "recommendation_cards": cards,
+        "default_answer_draft": default_answer,
+    }
+
+
+def build_account_tool_output(query: str, summary: dict) -> dict:
+    query_lower = normalize_query_text(query)
+    if ("how many" in query_lower and "account" in query_lower) or "account count" in query_lower:
+        view = "count"
+        default_answer = format_account_count_answer(summary)
+    elif any(term in query_lower for term in ["how much cash", "cash do i currently have", "available cash", "liquid assets", "cash position"]):
+        view = "cash_position"
+        default_answer = format_cash_position_answer(summary)
+    elif any(term in query_lower for term in ["how much do i have in each account", "each account", "per account", "show my balances"]):
+        view = "per_account"
+        default_answer = format_each_account_balance_answer(summary)
+    else:
+        view = "overview"
+        default_answer = format_account_overview_answer(summary)
+    return {
+        "tool_name": "account_summary_tool",
+        "view": view,
+        "account_overview": summary["account_overview"],
+        "default_answer_draft": default_answer,
+    }
+
+
+def build_portfolio_tool_output(query: str, summary: dict) -> dict:
+    return {
+        "tool_name": "portfolio_tool",
+        "portfolio_overview": summary["portfolio_overview"],
+        "default_answer_draft": format_portfolio_explanation_answer(summary, query=query),
+    }
+
+
+def build_architecture_tool_output(query: str, summary: dict) -> dict:
+    return {
+        "tool_name": "architecture_context",
+        "data_source_overview": summary["data_source_overview"],
+        "default_answer_draft": answer_architecture_question(query, summary),
+    }
+
+
+def build_reference_retrieval_output(orchestrated_context: OrchestratedContext) -> dict:
+    retrieval_result = orchestrated_context.retrieval_result or {}
+    return {
+        "tool_name": "reference_retrieval",
+        "backend": retrieval_result.get("backend", retrieval_result.get("retrieval_mode")),
+        "query_used": retrieval_result.get("query_used"),
+        "chunks": [
+            {
+                "title": chunk["title"],
+                "section": chunk["section"],
+                "score": chunk["score"],
+                "snippet": chunk["snippet"],
+            }
+            for chunk in retrieval_result.get("chunks", [])[:4]
+        ],
+    }
+
+
+def build_market_snapshot_output(query: str, summary: dict, orchestrated_context: OrchestratedContext) -> dict:
+    snapshot = orchestrated_context.market_snapshot or fetch_market_snapshot()
+    default_answer = (
+        format_market_snapshot_answer(snapshot)
+        if is_market_snapshot_query(query)
+        else format_market_change_explanation_answer(summary, snapshot, query=query)
+    )
+    return {
+        "tool_name": "market_snapshot",
+        "status": snapshot.get("status"),
+        "as_of": snapshot.get("as_of"),
+        "quotes": snapshot.get("quotes", [])[:4],
+        "default_answer_draft": default_answer,
+    }
+
+
+def run_analysis_tools_for_plan(
+    query: str,
+    summary: dict,
+    intent: IntentSchema,
+    capability_plan: CapabilityPlan,
+    orchestrated_context: OrchestratedContext,
+) -> dict:
+    tool_outputs: dict[str, object] = {
+        "tools_used": list(capability_plan.tool_calls),
+    }
+
+    for tool_name in capability_plan.tool_calls:
+        if tool_name == "spending_tool":
+            tool_outputs["spending_tool"] = build_spending_tool_output(query, summary)
+        elif tool_name == "recommendation_engine":
+            tool_outputs["recommendation_engine"] = build_recommendation_tool_output(query, summary)
+        elif tool_name == "account_summary_tool":
+            tool_outputs["account_summary_tool"] = build_account_tool_output(query, summary)
+        elif tool_name == "portfolio_tool":
+            tool_outputs["portfolio_tool"] = build_portfolio_tool_output(query, summary)
+        elif tool_name == "portfolio_performance_toolkit":
+            performance_output = analyze_portfolio_performance_tools(summary, query)
+            performance_output["default_answer_draft"] = format_return_change_answer(
+                summary,
+                query=query,
+                tool_outputs=performance_output,
+                retrieval_result=orchestrated_context.retrieval_result,
+            )
+            tool_outputs["portfolio_performance_toolkit"] = performance_output
+        elif tool_name == "reference_retrieval":
+            tool_outputs["reference_retrieval"] = build_reference_retrieval_output(orchestrated_context)
+        elif tool_name == "market_snapshot":
+            tool_outputs["market_snapshot"] = build_market_snapshot_output(query, summary, orchestrated_context)
+        elif tool_name == "architecture_context":
+            tool_outputs["architecture_context"] = build_architecture_tool_output(query, summary)
+
+    if len(capability_plan.tool_calls) == 1:
+        tool_outputs["tool_name"] = capability_plan.tool_calls[0]
+    return tool_outputs
+
+
+def validate_tool_results(tool_outputs: dict, capability_plan: CapabilityPlan) -> dict:
+    validated = dict(tool_outputs or {})
+    validated["tools_used"] = list(capability_plan.tool_calls)
+    validated["missing_tools"] = [
+        tool_name
+        for tool_name in capability_plan.tool_calls
+        if tool_name not in validated
+    ]
+    if len(capability_plan.tool_calls) == 1 and capability_plan.tool_calls[0] in validated:
+        validated["tool_name"] = capability_plan.tool_calls[0]
+    return validated
+
+
+def summarize_evidence_for_prompt(evidence_payload: dict) -> str:
+    intent = evidence_payload.get("intent", {})
+    capability_plan = evidence_payload.get("capability_plan", {})
+    tools_used = ", ".join(evidence_payload.get("tool_outputs", {}).get("tools_used", [])) or "no deterministic tools"
+    draft = evidence_payload.get("default_answer_draft", "")
+    brief_draft = " ".join(draft.split())[:280]
+    return (
+        f"Domain: {intent.get('domain', 'unknown')}; "
+        f"Operator: {intent.get('operator', 'unknown')}; "
+        f"Tools used: {tools_used}; "
+        f"UI route: {capability_plan.get('ui_route_label', 'unknown')}; "
+        f"Deterministic draft: {brief_draft}"
+    )
+
+
+def build_evidence_payload(
+    query: str,
+    summary: dict,
+    intent: IntentSchema,
+    capability_plan: CapabilityPlan,
+    orchestrated_context: OrchestratedContext,
+    tool_outputs: dict,
+) -> dict:
+    default_answer = None
+    recommendation_cards = None
+    retrieval_result = orchestrated_context.retrieval_result
+    if "recommendation_engine" in tool_outputs and "reference_retrieval" in tool_outputs and "market_snapshot" in tool_outputs:
+        default_answer = format_hybrid_profile_rag_market_answer(
+            summary,
+            retrieval_result or {"chunks": []},
+            orchestrated_context.market_snapshot or fetch_market_snapshot(),
+        )
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "recommendation_engine" in tool_outputs and "reference_retrieval" in tool_outputs and "spending_tool" in tool_outputs:
+        default_answer = (
+            f"{tool_outputs['spending_tool'].get('default_answer_draft')}\n\n"
+            "Recommendation step using your profile and the retrieved rules:\n"
+            f"{format_hybrid_rule_recommendation_answer(summary, retrieval_result or {'chunks': []})}"
+        )
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "recommendation_engine" in tool_outputs and "reference_retrieval" in tool_outputs:
+        default_answer = format_hybrid_rule_recommendation_answer(summary, retrieval_result or {"chunks": []})
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "recommendation_engine" in tool_outputs and "market_snapshot" in tool_outputs:
+        default_answer = format_hybrid_market_recommendation_answer(
+            summary,
+            orchestrated_context.market_snapshot or fetch_market_snapshot(),
+        )
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "recommendation_engine" in tool_outputs and "spending_tool" in tool_outputs:
+        default_answer = format_hybrid_spending_recommendation_answer(summary)
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "spending_tool" in tool_outputs:
+        default_answer = tool_outputs["spending_tool"].get("default_answer_draft")
+    elif "account_summary_tool" in tool_outputs:
+        default_answer = tool_outputs["account_summary_tool"].get("default_answer_draft")
+    elif "portfolio_tool" in tool_outputs:
+        default_answer = tool_outputs["portfolio_tool"].get("default_answer_draft")
+    elif "portfolio_performance_toolkit" in tool_outputs:
+        default_answer = tool_outputs["portfolio_performance_toolkit"].get("default_answer_draft")
+    elif "recommendation_engine" in tool_outputs:
+        default_answer = tool_outputs["recommendation_engine"].get("default_answer_draft")
+        recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "market_snapshot" in tool_outputs:
+        default_answer = tool_outputs["market_snapshot"].get("default_answer_draft")
+    elif "architecture_context" in tool_outputs:
+        default_answer = tool_outputs["architecture_context"].get("default_answer_draft")
+
+    if default_answer is None:
+        if capability_plan.uses_rag and orchestrated_context.retrieval_result:
+            if is_fhsa_tfsa_comparison_query(query):
+                default_answer = format_fhsa_tfsa_comparison_answer(summary)
+            else:
+                default_answer = format_rag_answer_from_chunks(query, orchestrated_context.retrieval_result)
+        else:
+            default_answer = answer_from_rules(query, summary)
+
+    evidence_payload = {
+        "intent": intent.model_dump(),
+        "capability_plan": capability_plan.model_dump(),
+        "tool_outputs": tool_outputs,
+        "default_answer_draft": default_answer,
+        "recommendation_cards": recommendation_cards,
+        "market_snapshot": orchestrated_context.market_snapshot,
+        "retrieval_result": retrieval_result,
+    }
+    evidence_payload["evidence_summary"] = summarize_evidence_for_prompt(evidence_payload)
+    return evidence_payload
+
+
+def build_generation_instruction_suffix(intent: IntentSchema, capability_plan: CapabilityPlan) -> str:
+    instructions = [
+        "Treat the deterministic_answer_draft, tool_evidence, retrieved_context, and market_context as the factual source of truth.",
+        "Do not change money amounts, dates, category labels, ranking order, or retrieved rule wording.",
+        "Never rewrite, negate, or paraphrase product names or account names.",
+    ]
+    if intent.domain == "knowledge" or capability_plan.uses_rag:
+        instructions.append(
+            "When retrieved finance rules are provided, stay close to them and do not invent legal thresholds, contribution limits, or eligibility tests."
+        )
+    if intent.domain == "spending":
+        instructions.append(
+            "For spending questions, make the spending scope explicit, especially when the operator is exclude."
+        )
+    if intent.operator == "compare":
+        instructions.append(
+            "For comparison questions, start with a neutral side-by-side explanation before adding relevance to the client profile."
+        )
+    if intent.operator == "deprioritize":
+        instructions.append(
+            "If the user asks what not to recommend, frame the answer as lower priority for now rather than universally bad."
+        )
+    if intent.domain == "performance":
+        instructions.append(
+            "For performance questions, use the analytics tool context to explain what changed and mention the focus month explicitly."
+        )
+    return " ".join(instructions)
+
+
+def answer_with_capability_generation(
+    query: str,
+    summary: dict,
+    intent: IntentSchema,
+    capability_plan: CapabilityPlan,
+    evidence_payload: dict,
+    chat_history: list[dict] | None = None,
+    request_metadata: dict | None = None,
+    access_decision: dict | None = None,
+) -> dict:
+    extra_sections = {
+        "intent_schema": evidence_payload["intent"],
+        "capability_plan": evidence_payload["capability_plan"],
+        "tool_evidence": evidence_payload["tool_outputs"],
+        "evidence_summary": evidence_payload["evidence_summary"],
+        "deterministic_answer_draft": evidence_payload["default_answer_draft"],
+        "request_metadata": request_metadata or {},
+        "access_control_context": access_decision or {},
+    }
+    result = answer_with_llm(
+        query,
+        summary,
+        route_label=capability_plan.ui_route_label,
+        chat_history=chat_history,
+        retrieval_result=evidence_payload.get("retrieval_result"),
+        market_snapshot=evidence_payload.get("market_snapshot"),
+        extra_sections=extra_sections,
+        fallback_answer=evidence_payload["default_answer_draft"],
+        instruction_suffix=build_generation_instruction_suffix(intent, capability_plan),
+    )
+    result["generation_source"] = result.get("mode", "rules")
+    result["fallback_reason"] = intent.fallback_reason
+    return result
+
+
+def execute_capability_plan(
+    query: str,
+    use_llm: bool,
+    summary: dict,
+    intent: IntentSchema,
+    capability_plan: CapabilityPlan,
+    orchestrated_context: OrchestratedContext,
+    chat_history: list[dict] | None = None,
+    request_metadata: dict | None = None,
+    access_decision: dict | None = None,
+    tool_outputs: dict | None = None,
+) -> dict:
+    tool_outputs = tool_outputs or {}
+    if access_decision is not None and not access_decision.get("allowed", False):
+        return {
+            "answer": format_access_denied_answer(access_decision),
+            "analysis": None,
+            "mode": "access_denied",
+            "recommendation_cards": None,
+            "access_decision": access_decision,
+            "tool_outputs": tool_outputs,
+            "intent": intent.model_dump(),
+            "capability_plan": capability_plan.model_dump(),
+            "generation_source": "access_gate",
+            "fallback_reason": intent.fallback_reason,
+            "answer_citations": [],
+        }
+
+    if intent.domain == "safety":
+        return {
+            "answer": format_safety_compliance_answer(
+                query,
+                detect_safety_compliance_issue(query) or {"kind": "prompt_injection_or_insider"},
+            ),
+            "analysis": None,
+            "mode": "safety_compliance",
+            "recommendation_cards": None,
+            "tool_outputs": tool_outputs,
+            "intent": intent.model_dump(),
+            "capability_plan": capability_plan.model_dump(),
+            "generation_source": "rules_safety",
+            "fallback_reason": intent.fallback_reason,
+            "answer_citations": [],
+        }
+
+    evidence_payload = build_evidence_payload(
+        query=query,
+        summary=summary,
+        intent=intent,
+        capability_plan=capability_plan,
+        orchestrated_context=orchestrated_context,
+        tool_outputs=tool_outputs,
+    )
+
+    if capability_plan.requires_generation and use_llm:
+        answer_payload = answer_with_capability_generation(
+            query=query,
+            summary=summary,
+            intent=intent,
+            capability_plan=capability_plan,
+            evidence_payload=evidence_payload,
+            chat_history=chat_history,
+            request_metadata=request_metadata,
+            access_decision=access_decision,
+        )
+        if answer_payload.get("analysis") is None:
+            answer_payload["analysis"] = {
+                "intent": f"{intent.domain}_{intent.operator}",
+                "answer_markdown": answer_payload["answer"],
+                "key_insights": [evidence_payload["evidence_summary"]],
+                "recommended_products": [
+                    item.get("product_name", item.get("category", ""))
+                    for item in tool_outputs.get("recommendation_engine", {}).get("scored_recommendations", [])[:3]
+                    if item.get("product_name") or item.get("category")
+                ],
+                "next_actions": [],
+                "confidence": intent.confidence.title(),
+            }
+        answer_payload["mode"] = (
+            f"{intent.domain}_llm"
+            if answer_payload.get("mode", "").startswith("llm_")
+            else answer_payload.get("mode", f"{intent.domain}_llm")
+        )
+    else:
+        answer_payload = {
+            "answer": evidence_payload["default_answer_draft"],
+            "analysis": {
+                "intent": f"{intent.domain}_{intent.operator}",
+                "answer_markdown": evidence_payload["default_answer_draft"],
+                "key_insights": [evidence_payload["evidence_summary"]],
+                "recommended_products": [
+                    item.get("product_name", item.get("category", ""))
+                    for item in tool_outputs.get("recommendation_engine", {}).get("scored_recommendations", [])[:3]
+                    if item.get("product_name") or item.get("category")
+                ],
+                "next_actions": [],
+                "confidence": intent.confidence.title(),
+            },
+            "mode": f"{intent.domain}_rules",
+            "generation_source": "rules_fallback",
+            "fallback_reason": intent.fallback_reason,
+        }
+
+    answer_payload["answer_citations"] = build_answer_citations(
+        summary=summary,
+        tool_outputs=tool_outputs,
+        retrieval_result=evidence_payload.get("retrieval_result"),
+        market_snapshot=evidence_payload.get("market_snapshot"),
+    )
+    answer_payload["recommendation_cards"] = evidence_payload.get("recommendation_cards")
+    answer_payload["market_snapshot"] = evidence_payload.get("market_snapshot")
+    answer_payload["rag_sources"] = format_reference_sources((evidence_payload.get("retrieval_result") or {}).get("chunks", []))
+    answer_payload["tool_outputs"] = tool_outputs
+    answer_payload["intent"] = evidence_payload["intent"]
+    answer_payload["capability_plan"] = evidence_payload["capability_plan"]
+    answer_payload["evidence_summary"] = evidence_payload["evidence_summary"]
+    answer_payload["generation_source"] = answer_payload.get("generation_source", answer_payload.get("mode", "rules"))
+    answer_payload["fallback_reason"] = answer_payload.get("fallback_reason", intent.fallback_reason)
+    return answer_payload
+
+
 def execute_route_analysis(
     query: str,
     use_llm: bool,
@@ -1533,12 +2183,32 @@ def execute_route_analysis(
         spending_answer = answer_from_rules(query, summary)
         spending_analysis = build_spending_analysis(summary)
         spending_analysis["answer_markdown"] = spending_answer
-        answer_payload = {
-            "answer": spending_answer,
-            "analysis": spending_analysis,
-            "mode": "spending_rules",
-            "recommendation_cards": None,
-        }
+        if use_llm:
+            answer_payload = answer_with_llm(
+                query,
+                summary,
+                route_label=route_decision.label,
+                chat_history=chat_history,
+                extra_sections={
+                    "deterministic_answer_draft": spending_answer,
+                    "spending_query_interpretation": extract_spending_scope(query),
+                },
+                fallback_answer=spending_answer,
+                instruction_suffix=(
+                    "For spending questions, preserve the exact money amounts, date window, and category labels from the deterministic answer draft. "
+                    "If the query is an exclusion question such as spending outside a category, make that interpretation explicit in the first sentence."
+                ),
+            )
+            answer_payload["mode"] = "spending_llm" if answer_payload.get("mode", "").startswith("llm_") else answer_payload.get("mode")
+            if answer_payload.get("analysis") is None:
+                answer_payload["analysis"] = spending_analysis
+        else:
+            answer_payload = {
+                "answer": spending_answer,
+                "analysis": spending_analysis,
+                "mode": "spending_rules",
+                "recommendation_cards": None,
+            }
     elif route_decision.route == "market_snapshot_rules":
         snapshot = orchestrated_context.market_snapshot or fetch_market_snapshot()
         answer_payload = {
@@ -1706,14 +2376,40 @@ def execute_route_analysis(
         answer_payload["recommendation_cards"] = recommendation_cards
     elif route_decision.route == "recommendation_rules":
         recommendation_analysis = build_recommendation_analysis(summary)
-        recommendation_answer = format_account_priority_answer(summary) if all(term in query.lower() for term in ["fhsa", "tfsa", "rrsp"]) else format_rule_based_recommendation(summary)
+        if is_negative_recommendation_query(query):
+            recommendation_answer = format_negative_recommendation_answer(summary)
+        else:
+            recommendation_answer = format_account_priority_answer(summary) if all(term in query.lower() for term in ["fhsa", "tfsa", "rrsp"]) else format_rule_based_recommendation(summary)
         recommendation_analysis["answer_markdown"] = recommendation_answer
-        answer_payload = {
-            "answer": recommendation_answer,
-            "analysis": recommendation_analysis,
-            "mode": "recommendation_rules",
-            "recommendation_cards": build_recommendation_cards(summary),
-        }
+        recommendation_cards = build_recommendation_cards(summary)
+        if use_llm:
+            answer_payload = answer_with_llm(
+                query,
+                summary,
+                route_label=route_decision.label,
+                chat_history=chat_history,
+                extra_sections={
+                    "deterministic_answer_draft": recommendation_answer,
+                    "recommendation_cards_context": recommendation_cards,
+                    "query_polarity": "negative_recommendation" if is_negative_recommendation_query(query) else "positive_recommendation",
+                },
+                fallback_answer=recommendation_answer,
+                instruction_suffix=(
+                    "For recommendation questions, treat the deterministic answer draft as the factual baseline. "
+                    "Keep the ranked product order consistent with scored_recommendations. "
+                    "If the user asks what not to recommend, answer as lower priority for now rather than universally bad."
+                ),
+            )
+            answer_payload["mode"] = "recommendation_llm" if answer_payload.get("mode", "").startswith("llm_") else answer_payload.get("mode")
+            answer_payload["analysis"] = answer_payload.get("analysis") or recommendation_analysis
+        else:
+            answer_payload = {
+                "answer": recommendation_answer,
+                "analysis": recommendation_analysis,
+                "mode": "recommendation_rules",
+                "recommendation_cards": recommendation_cards,
+            }
+        answer_payload["recommendation_cards"] = recommendation_cards
     elif route_decision.route == "rag_knowledge":
         answer_payload = answer_with_rag(
             query,
@@ -1773,6 +2469,12 @@ def analyze_financial_data_local(
             "access_decision": access_decision,
             "tool_outputs": {},
             "compliance_report": None,
+            "intent": None,
+            "capability_plan": None,
+            "generation_source": "access_gate",
+            "fallback_reason": access_decision["reason"],
+            "evidence_summary": None,
+            "answer_citations": [],
             "summary": None,
         }
         audit_info = write_audit_log(
@@ -1816,6 +2518,12 @@ def analyze_financial_data_local(
             "access_decision": access_decision,
             "tool_outputs": {},
             "compliance_report": None,
+            "intent": None,
+            "capability_plan": None,
+            "generation_source": "rules_safety",
+            "fallback_reason": safety_issue["reason"],
+            "evidence_summary": None,
+            "answer_citations": [],
             "summary": summary,
         }
         audit_info = write_audit_log(
@@ -1846,24 +2554,33 @@ def analyze_financial_data_local(
                 chat_history=normalized_history,
                 request_metadata=effective_request_metadata,
                 access_decision=access_decision,
-                run_tools_fn=run_analysis_tools_for_route,
-                execute_route_fn=execute_route_analysis,
+                parse_intent_fn=parse_intent,
+                plan_capabilities_fn=plan_capabilities,
+                run_tools_fn=run_analysis_tools_for_plan,
+                validate_tool_results_fn=validate_tool_results,
+                execute_plan_fn=execute_capability_plan,
                 compliance_fn=apply_compliance_to_answer_payload,
             )
-            route_decision = graph_result["route_decision"]
+            intent = graph_result["intent"]
+            capability_plan = graph_result["capability_plan"]
+            route_decision = capability_plan_to_route_decision(capability_plan)
             answer_payload = graph_result["answer_payload"]
             access_decision = graph_result.get("access_decision", access_decision)
             tool_outputs = graph_result.get("tool_outputs", answer_payload.get("tool_outputs", {}))
             workflow_backend = "langgraph"
         except Exception as graph_error:
-            route_decision = route_query(query, use_llm=use_llm, chat_history=normalized_history)
-            orchestrated_context = gather_orchestrated_context(query, route_decision)
-            tool_outputs = run_analysis_tools_for_route(query, summary, route_decision, orchestrated_context)
-            answer_payload = execute_route_analysis(
+            intent = parse_intent(query, use_llm=use_llm, chat_history=normalized_history)
+            capability_plan = plan_capabilities(intent, query)
+            route_decision = capability_plan_to_route_decision(capability_plan)
+            orchestrated_context = gather_orchestrated_context(query, capability_plan)
+            tool_outputs = run_analysis_tools_for_plan(query, summary, intent, capability_plan, orchestrated_context)
+            tool_outputs = validate_tool_results(tool_outputs, capability_plan)
+            answer_payload = execute_capability_plan(
                 query=query,
                 use_llm=use_llm,
                 summary=summary,
-                route_decision=route_decision,
+                intent=intent,
+                capability_plan=capability_plan,
                 orchestrated_context=orchestrated_context,
                 chat_history=normalized_history,
                 request_metadata=effective_request_metadata,
@@ -1877,14 +2594,18 @@ def analyze_financial_data_local(
                 f"{graph_error}"
             )
     else:
-        route_decision = route_query(query, use_llm=use_llm, chat_history=normalized_history)
-        orchestrated_context = gather_orchestrated_context(query, route_decision)
-        tool_outputs = run_analysis_tools_for_route(query, summary, route_decision, orchestrated_context)
-        answer_payload = execute_route_analysis(
+        intent = parse_intent(query, use_llm=use_llm, chat_history=normalized_history)
+        capability_plan = plan_capabilities(intent, query)
+        route_decision = capability_plan_to_route_decision(capability_plan)
+        orchestrated_context = gather_orchestrated_context(query, capability_plan)
+        tool_outputs = run_analysis_tools_for_plan(query, summary, intent, capability_plan, orchestrated_context)
+        tool_outputs = validate_tool_results(tool_outputs, capability_plan)
+        answer_payload = execute_capability_plan(
             query=query,
             use_llm=use_llm,
             summary=summary,
-            route_decision=route_decision,
+            intent=intent,
+            capability_plan=capability_plan,
             orchestrated_context=orchestrated_context,
             chat_history=normalized_history,
             request_metadata=effective_request_metadata,
@@ -1912,6 +2633,12 @@ def analyze_financial_data_local(
         "access_decision": access_decision,
         "tool_outputs": answer_payload.get("tool_outputs", tool_outputs if 'tool_outputs' in locals() else {}),
         "compliance_report": answer_payload.get("compliance_report"),
+        "intent": answer_payload.get("intent", intent.model_dump() if 'intent' in locals() else None),
+        "capability_plan": answer_payload.get("capability_plan", capability_plan.model_dump() if 'capability_plan' in locals() else None),
+        "generation_source": answer_payload.get("generation_source"),
+        "fallback_reason": answer_payload.get("fallback_reason"),
+        "evidence_summary": answer_payload.get("evidence_summary"),
+        "answer_citations": answer_payload.get("answer_citations", []),
         "summary": summary,
     }
     audit_info = write_audit_log(
@@ -1922,11 +2649,7 @@ def analyze_financial_data_local(
             "route_label": result["route_label"],
             "route_reason": result["route_reason"],
             "workflow_backend": workflow_backend,
-            "tools_used": (
-                [result["tool_outputs"].get("tool_name")]
-                if isinstance(result["tool_outputs"], dict) and result["tool_outputs"].get("tool_name")
-                else []
-            ),
+            "tools_used": result.get("capability_plan", {}).get("tool_calls", []),
             "retrieved_sources": [
                 source.get("title")
                 for source in (result.get("rag_sources") or [])

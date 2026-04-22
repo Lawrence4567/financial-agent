@@ -199,6 +199,12 @@ def normalize_message(message):
         "tool_outputs": None,
         "compliance_report": None,
         "audit_info": None,
+        "intent": None,
+        "capability_plan": None,
+        "generation_source": None,
+        "fallback_reason": None,
+        "evidence_summary": None,
+        "answer_citations": None,
     }
 
 
@@ -244,6 +250,49 @@ def render_rag_sources(sources: list[dict]) -> None:
             st.caption(f"Section: {source['section']} | Score: {source['score']}")
             st.write(source["snippet"])
             st.caption(source["source_file"])
+
+
+def render_answer_citations(citations: list[dict]) -> None:
+    if not citations:
+        return
+
+    with st.expander("Sources used", expanded=False):
+        for citation in citations:
+            st.markdown(f"**{citation['label']}**")
+            meta_parts = [citation.get("kind", "source").replace("_", " ").title()]
+            if citation.get("section"):
+                meta_parts.append(f"Section: {citation['section']}")
+            if citation.get("score") is not None:
+                meta_parts.append(f"Score: {citation['score']:.3f}")
+            st.caption(" | ".join(meta_parts))
+            if citation.get("used_for"):
+                st.write(citation["used_for"])
+            if citation.get("snippet"):
+                st.write(citation["snippet"])
+            if citation.get("source"):
+                st.caption(citation["source"])
+
+
+def render_intent_plan_details(message: dict) -> None:
+    intent = message.get("intent")
+    capability_plan = message.get("capability_plan")
+    if not intent and not capability_plan:
+        return
+
+    with st.expander("Intent and workflow plan"):
+        if intent:
+            st.write("Intent schema:")
+            st.json(intent)
+        if capability_plan:
+            st.write("Capability plan:")
+            st.json(capability_plan)
+        if message.get("generation_source"):
+            st.write(f"- Generation source: `{message['generation_source']}`")
+        if message.get("fallback_reason"):
+            st.write(f"- Fallback reason: {message['fallback_reason']}")
+        if message.get("evidence_summary"):
+            st.write("Evidence summary:")
+            st.caption(message["evidence_summary"])
 
 
 def render_governance_details(message: dict) -> None:
@@ -437,6 +486,10 @@ def render_assistant_message(message: dict, developer_mode: bool = False) -> Non
         )
     if developer_mode and message.get("workflow_backend"):
         st.caption(f"Workflow backend: {message['workflow_backend']}")
+    if developer_mode and message.get("generation_source"):
+        st.caption(f"Generation source: {message['generation_source']}")
+    if developer_mode and message.get("fallback_reason"):
+        st.caption(f"Fallback reason: {message['fallback_reason']}")
     if message.get("warning"):
         st.info(message["warning"])
     if message.get("error"):
@@ -460,11 +513,14 @@ def render_assistant_message(message: dict, developer_mode: bool = False) -> Non
     ):
         render_market_snapshot_cards(message["market_snapshot"])
         st.caption(f"As of {message['market_snapshot'].get('as_of', 'unknown')} | Source: {message['market_snapshot'].get('provider', 'unknown')}")
+    if message.get("answer_citations"):
+        render_answer_citations(message["answer_citations"])
     if developer_mode and message.get("rag_sources"):
         render_rag_sources(message["rag_sources"])
     if developer_mode and message.get("request_preview"):
         render_request_preview(message["request_preview"])
     if developer_mode:
+        render_intent_plan_details(message)
         render_governance_details(message)
 
 
@@ -532,6 +588,12 @@ def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> No
             "tool_outputs": result.get("tool_outputs"),
             "compliance_report": result.get("compliance_report"),
             "audit_info": result.get("audit_info"),
+            "intent": result.get("intent"),
+            "capability_plan": result.get("capability_plan"),
+            "generation_source": result.get("generation_source"),
+            "fallback_reason": result.get("fallback_reason"),
+            "evidence_summary": result.get("evidence_summary"),
+            "answer_citations": result.get("answer_citations"),
         }
     )
 
@@ -789,7 +851,7 @@ def render_copilot(has_openai_key: bool, developer_mode: bool = False) -> None:
         "Show my household account summary.",
         "Explain my current portfolio allocation.",
         "Why did my returns change this month?",
-        "Explain market changes and what they mean for this portfolio.",
+        "Based on my profile, should I focus on FHSA, TFSA, or RRSP?",
     ]
     for index, question in enumerate(sample_questions):
         with sample_cols[index % 2]:
@@ -830,7 +892,7 @@ with st.sidebar:
     mode_label = "Hybrid mode" if has_openai_key else "Rules only"
     st.write(f"- Current mode: `{mode_label}`")
     if has_openai_key:
-        st.write(f"- Model: `{os.getenv('OPENAI_MODEL', 'gpt-4o-mini')}`")
+        st.write(f"- Model: `{os.getenv('OPENAI_MODEL', 'gpt-5.4')}`")
     st.session_state.developer_mode = st.checkbox(
         "Developer mode",
         value=st.session_state.developer_mode,

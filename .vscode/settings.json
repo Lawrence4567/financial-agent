@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
+  "terminal.integrated.cwd": "F:\\Github_Repo\\financial_advisory_genai",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}\\01_your_canada_version\\app"
+  ]
+}

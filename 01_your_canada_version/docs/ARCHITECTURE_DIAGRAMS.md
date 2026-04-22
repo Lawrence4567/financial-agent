@@ -20,6 +20,7 @@ Focus:
 
 - major layers
 - main data sources
+- intent parser and capability planner
 - orchestration path
 - where LLM, RAG, tools, and compliance fit
 
@@ -34,7 +35,7 @@ Focus:
 - request lifecycle
 - validation order
 - when data is loaded
-- when routing, tools, generation, and audit happen
+- when intent parsing, planning, tools, generation, and audit happen
 
 This diagram uses a fixed SVG layout so it stays readable in VS Code preview.
 
@@ -50,7 +51,7 @@ Focus:
 
 - step-by-step request journey
 - access control
-- route selection
+- intent parsing and capability planning
 - optional RAG and tool usage
 - compliance and audit
 
@@ -75,7 +76,7 @@ Use this to explain the online retrieval step.
 Focus:
 
 - index load
-- retrieval mode choice
+- retrieval backend choice
 - ranking logic
 - retrieved context for answer generation
 
@@ -89,7 +90,7 @@ Focus:
 
 - node order
 - clean workflow design
-- separation between routing, context, tools, generation, and compliance
+- separation between intent parsing, planning, tools, validation, generation, and compliance
 
 ![LangGraph Workflow Diagram](./assets/langgraph_workflow_diagram.svg)
 

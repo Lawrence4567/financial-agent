@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+import os
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+
+APP_DIR = Path(__file__).resolve().parents[1] / "app"
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+
+from intent_engine import parse_intent, plan_capabilities
+from local_financial_qa import analyze_financial_data_local
+from retrieval_backend import LocalIndexRetriever
+
+
+class IntentWorkflowTests(unittest.TestCase):
+    def test_food_spending_intent_uses_include_operator(self) -> None:
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent("how much i spend on food", use_llm=False, chat_history=[])
+        self.assertEqual(intent.domain, "spending")
+        self.assertEqual(intent.operator, "include")
+        self.assertIn("Food", intent.target_entities)
+
+    def test_non_food_spending_intent_uses_exclude_operator(self) -> None:
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent("how much i not spend on food", use_llm=False, chat_history=[])
+        self.assertEqual(intent.domain, "spending")
+        self.assertEqual(intent.operator, "exclude")
+        self.assertEqual(intent.polarity, "negative")
+
+    def test_negative_recommendation_intent_deprioritizes(self) -> None:
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent("what should i avoid", use_llm=False, chat_history=[])
+        plan = plan_capabilities(intent, "what should i avoid")
+        self.assertEqual(intent.domain, "recommendation")
+        self.assertEqual(intent.operator, "deprioritize")
+        self.assertEqual(plan.tool_calls, ["recommendation_engine"])
+
+    def test_fhsa_vs_tfsa_routes_to_knowledge_compare(self) -> None:
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent("FHSA vs TFSA", use_llm=False, chat_history=[])
+        plan = plan_capabilities(intent, "FHSA vs TFSA")
+        self.assertEqual(intent.domain, "knowledge")
+        self.assertEqual(intent.operator, "compare")
+        self.assertTrue(intent.needs_rag)
+        self.assertEqual(plan.tool_calls, ["reference_retrieval"])
+
+    def test_spending_and_rules_query_uses_recommendation_and_rag(self) -> None:
+        query = "based on my spending and rules, what should I do?"
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent(query, use_llm=False, chat_history=[])
+        plan = plan_capabilities(intent, query)
+        self.assertEqual(intent.domain, "recommendation")
+        self.assertIn("spending_tool", plan.tool_calls)
+        self.assertIn("recommendation_engine", plan.tool_calls)
+        self.assertIn("reference_retrieval", plan.tool_calls)
+
+    def test_follow_up_query_keeps_recommendation_context(self) -> None:
+        history = [
+            {"role": "user", "content": "What should I focus on first?"},
+            {"role": "assistant", "content": "Start with FHSA, then TFSA.", "route_label": "Recommendation rules"},
+        ]
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            intent = parse_intent("what about that one", use_llm=False, chat_history=history)
+        self.assertEqual(intent.domain, "recommendation")
+
+    def test_local_index_retriever_contract(self) -> None:
+        retriever = LocalIndexRetriever()
+        result = retriever.retrieve("FHSA vs TFSA", top_k=2, filters={"topic": "registered_accounts"})
+        self.assertEqual(result.backend, "local_index")
+        self.assertEqual(result.query_used, "FHSA vs TFSA")
+        self.assertEqual(result.filters_applied["topic"], "registered_accounts")
+        self.assertLessEqual(len(result.chunks), 2)
+
+    def test_analysis_result_exposes_intent_and_capability_plan(self) -> None:
+        result = analyze_financial_data_local(
+            "how much i not spend on food?",
+            use_llm=False,
+            request_metadata={
+                "user_id": "501",
+                "session_id": "session-intent-test",
+                "channel": "web_app",
+                "device": "browser",
+                "timestamp": "2026-04-21T12:00:00Z",
+                "sso_provider": "demo_local_login",
+            },
+        )
+        self.assertEqual(result["intent"]["operator"], "exclude")
+        self.assertEqual(result["capability_plan"]["tool_calls"], ["spending_tool"])
+        self.assertEqual(result["generation_source"], "rules_fallback")
+        self.assertIn("outside `Food`", result["answer"])
+
+    def test_spending_answer_exposes_local_dataset_citation(self) -> None:
+        result = analyze_financial_data_local(
+            "how much i spend on food?",
+            use_llm=False,
+            request_metadata={
+                "user_id": "501",
+                "session_id": "session-citation-spending",
+                "channel": "web_app",
+                "device": "browser",
+                "timestamp": "2026-04-21T12:10:00Z",
+                "sso_provider": "demo_local_login",
+            },
+        )
+        labels = [item["label"] for item in result["answer_citations"]]
+        self.assertIn("Transaction history", labels)
+
+    def test_knowledge_answer_exposes_retrieved_reference_citation(self) -> None:
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            result = analyze_financial_data_local(
+                "FHSA vs TFSA",
+                use_llm=False,
+                request_metadata={
+                    "user_id": "501",
+                    "session_id": "session-citation-rag",
+                    "channel": "web_app",
+                    "device": "browser",
+                    "timestamp": "2026-04-21T12:20:00Z",
+                    "sso_provider": "demo_local_login",
+                },
+            )
+        kinds = [item["kind"] for item in result["answer_citations"]]
+        self.assertIn("retrieved_reference", kinds)
+
+
+if __name__ == "__main__":
+    unittest.main()

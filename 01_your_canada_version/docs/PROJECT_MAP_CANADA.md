@@ -12,15 +12,17 @@ For detailed architecture, read `SYSTEM_ARCHITECTURE.md`.
 Runnable application code:
 
 - `app_local.py`: Streamlit UI and page layout
-- `local_financial_qa.py`: main controller for routing, tools, generation, compliance, and audit logging
+- `local_financial_qa.py`: main controller for intent parsing, tools, generation, compliance, and audit logging
+- `intent_engine.py`: structured intent parsing and capability planning
 - `data_sources.py`: data loading and market snapshot access
 - `demo_governance.py`: internal request records, access checks, guardrails, and audit logging
 - `analytics_tools.py`: portfolio attribution, exposure, and volatility analysis
 - `recommendation_engine.py`: deterministic product scoring and ranking
-- `query_router.py`: route classification
-- `response_orchestrator.py`: load RAG and market context only when needed
+- `query_router.py`: rules fallback and legacy route compatibility
+- `response_orchestrator.py`: load retrieval and market context only when the capability plan needs them
+- `retrieval_backend.py`: retrieval abstraction layer with a local-index backend
 - `rag_pipeline.py`: local chunking, embeddings, index build, and retrieval
-- `langgraph_flow.py`: workflow orchestration path
+- `langgraph_flow.py`: constrained workflow orchestration path
 - `prompt_builder.py`: structured prompt assembly
 
 ### `data/artifacts_canada/`
@@ -59,11 +61,13 @@ Supporting documentation:
 
 1. `app/app_local.py`
 2. `app/local_financial_qa.py`
-3. `app/demo_governance.py`
-4. `app/query_router.py`
-5. `app/response_orchestrator.py`
-6. `app/analytics_tools.py`
-7. `app/rag_pipeline.py`
-8. `app/langgraph_flow.py`
-9. `data/artifacts_canada/portfolio_performance.csv`
-10. `data/reference_canada/market_commentary.json`
+3. `app/intent_engine.py`
+4. `app/response_orchestrator.py`
+5. `app/demo_governance.py`
+6. `app/query_router.py`
+7. `app/retrieval_backend.py`
+8. `app/analytics_tools.py`
+9. `app/rag_pipeline.py`
+10. `app/langgraph_flow.py`
+11. `data/artifacts_canada/portfolio_performance.csv`
+12. `data/reference_canada/market_commentary.json`

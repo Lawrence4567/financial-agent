@@ -41,19 +41,26 @@ These are the main variables the app uses:
 - `OPENAI_MODEL`
 - `OPENAI_EMBEDDING_MODEL`
 - `LLM_BACKEND`
+- `INTENT_BACKEND`
+- `RETRIEVAL_BACKEND`
+- `WORKFLOW_BACKEND`
 - `FINANCE_DATA_DIR`
 
 Recommended values:
 
 - `OPENAI_API_KEY`: your real key
-- `OPENAI_MODEL`: `gpt-4o-mini`
+- `OPENAI_MODEL`: `gpt-5.4`
 - `OPENAI_EMBEDDING_MODEL`: `text-embedding-3-small`
 - `LLM_BACKEND`: `langchain`
+- `INTENT_BACKEND`: `llm`
+- `RETRIEVAL_BACKEND`: `local_index`
+- `WORKFLOW_BACKEND`: `langgraph`
 - `FINANCE_DATA_DIR`: `../data/artifacts_canada`
 
 Notes:
 
-- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs in rules-only mode.
+- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs with deterministic fallback answers, but LLM intent parsing and LLM synthesis are disabled.
+- `RETRIEVAL_BACKEND=local_index` is the default and does not require any external vector database.
 - `FINANCE_DATA_DIR` is optional in many cases because the code already has a default path.
 
 ## 3. Fastest AWS deployment: App Runner from source code
@@ -113,7 +120,10 @@ Why `8080`?
 In the App Runner environment variable section, add:
 
 - `OPENAI_API_KEY` = your real API key
-- `OPENAI_MODEL` = `gpt-4o-mini`
+- `OPENAI_MODEL` = `gpt-5.4`
+- `INTENT_BACKEND` = `llm`
+- `RETRIEVAL_BACKEND` = `local_index`
+- `WORKFLOW_BACKEND` = `langgraph`
 - `FINANCE_DATA_DIR` = `../data/artifacts_canada`
 
 If you want to test the app without OpenAI first, you can skip `OPENAI_API_KEY`.
@@ -179,7 +189,7 @@ docker build -t financial-advisory-genai .
 Run it locally:
 
 ```powershell
-docker run --rm -p 8501:8501 -e OPENAI_API_KEY=your_key_here -e OPENAI_MODEL=gpt-4o-mini financial-advisory-genai
+docker run --rm -p 8501:8501 -e OPENAI_API_KEY=your_key_here -e OPENAI_MODEL=gpt-5.4 financial-advisory-genai
 ```
 
 Then open:
@@ -200,7 +210,8 @@ This is the mental model:
 - `local CSV/JSON files` = files bundled inside the deployed app image
 - `OPENAI_API_KEY` = secret
 - `Yahoo Finance` calls = outbound internet access
-- `reference_rag_index.json` = prebuilt artifact, so AWS does not need a separate vector database yet
+- `reference_rag_index.json` = the default local retrieval backend artifact, so AWS does not need a separate vector database yet
+- `INTENT_BACKEND` + `WORKFLOW_BACKEND` = the knobs that control whether the app uses the new hybrid GenAI workflow end to end
 
 This is why the app is still relatively easy to deploy.
 

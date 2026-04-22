@@ -18,6 +18,8 @@ def _is_profile_relevant_query(query: str) -> bool:
             "should i",
             "focus on",
             "recommend",
+            "avoid",
+            "not recommend",
             "priority",
             "fit my goals",
         ]
@@ -297,6 +299,7 @@ def build_general_llm_request(
     model: str,
     route_label: str,
     chat_history: list[dict] | None = None,
+    retrieval_result: dict | None = None,
     market_snapshot: dict | None = None,
     extra_sections: dict[str, object] | None = None,
 ) -> dict:
@@ -305,6 +308,7 @@ def build_general_llm_request(
         summary=summary,
         route_label=route_label,
         chat_history=chat_history,
+        retrieval_result=retrieval_result,
         market_snapshot=market_snapshot,
         extra_sections=extra_sections,
     )

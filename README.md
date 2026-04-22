@@ -12,11 +12,13 @@ This is not only a simple chat demo. The app demonstrates a fuller advisory work
 
 - `request context`: create an internal request record for session, timestamp, and access checks
 - `identity and access control`: check access before AI reasoning
-- `intent routing`: combine explicit rules, semantic matching, and workflow orchestration
+- `intent parsing`: produce a structured `IntentSchema` with LLM-first parsing and rules fallback
+- `capability planning`: decide which tools, retrieval steps, and answer path are needed
 - `structured data retrieval`: use holdings, performance, accounts, and transactions
+- `retrieval abstraction`: use a local JSON index today, with a vector-store-ready interface for later
 - `RAG`: retrieve grounded context from local Canada finance reference files
-- `analytics tools`: explain portfolio attribution, exposure, and volatility
-- `LLM generation`: optionally use OpenAI for richer grounded answers
+- `analytics tools`: compute deterministic evidence for spending, accounts, portfolio, and recommendations
+- `LLM synthesis`: optionally use OpenAI for grounded final answers and intent parsing
 - `compliance guardrails`: soften unsafe wording and apply basic redaction
 - `audit logging`: write each request to a JSONL audit trail
 
@@ -83,6 +85,9 @@ The most important variables are:
 - `OPENAI_MODEL`: optional model override for generation
 - `OPENAI_EMBEDDING_MODEL`: optional model override for embeddings
 - `LLM_BACKEND`: optional backend selector
+- `INTENT_BACKEND`: `llm` or `rules_fallback`
+- `RETRIEVAL_BACKEND`: `local_index` today; vector-store adapter placeholder is reserved
+- `WORKFLOW_BACKEND`: `langgraph` or Python fallback orchestration
 - `FINANCE_DATA_DIR`: optional data path override
 
 ## Suggested Demo Questions
@@ -97,17 +102,18 @@ The most important variables are:
 
 This app uses a hybrid design:
 
-- `rules engine`: deterministic recommendation scoring and finance summaries
+- `intent engine`: structured intent parsing plus capability planning
+- `rules and tool layer`: deterministic recommendation scoring, finance summaries, and analytics evidence
+- `retrieval backend abstraction`: local index now, vector-store-ready interface later
 - `RAG`: retrieval over account, planning, official-rule, and market-commentary content
-- `analytics tool layer`: grounded portfolio analysis for explanation routes
 - `LangChain`: optional prompt pipeline
-- `LangGraph`: optional workflow orchestration
-- `OpenAI Responses API`: optional final language generation
+- `LangGraph`: constrained workflow orchestration
+- `OpenAI Responses API`: optional intent parsing and final language generation
 - `Yahoo Finance via yfinance`: optional live ETF snapshot
 
 The core architecture idea is:
 
-`rules decide what is stable, RAG explains what is documented, and LLMs improve how the answer is written.`
+`LLMs decide what workflow is needed, deterministic tools compute the facts, and the final answer is generated from evidence.`
 
 For diagrams, use [Architecture Diagrams](./01_your_canada_version/docs/ARCHITECTURE_DIAGRAMS.md).
 
@@ -116,11 +122,11 @@ For diagrams, use [Architecture Diagrams](./01_your_canada_version/docs/ARCHITEC
 For a question like `Why did my portfolio go down this month?`, the app:
 
 1. validates identity and allowed scope
-2. classifies the query
-3. loads the needed portfolio and market context
-4. retrieves relevant market commentary through RAG
-5. runs analytics tools
-6. generates a grounded explanation
+2. parses structured intent
+3. builds a capability plan
+4. loads the needed portfolio, market, and retrieval context
+5. runs deterministic analytics tools
+6. validates evidence and generates a grounded explanation
 7. applies compliance review
 8. writes an audit log
 
@@ -130,10 +136,12 @@ If you want to learn the codebase step by step, start here:
 
 1. `01_your_canada_version/app/app_local.py`
 2. `01_your_canada_version/app/local_financial_qa.py`
-3. `01_your_canada_version/app/demo_governance.py`
-4. `01_your_canada_version/app/query_router.py`
-5. `01_your_canada_version/app/response_orchestrator.py`
-6. `01_your_canada_version/app/analytics_tools.py`
-7. `01_your_canada_version/app/rag_pipeline.py`
-8. `01_your_canada_version/app/langgraph_flow.py`
-9. `01_your_canada_version/app/prompt_builder.py`
+3. `01_your_canada_version/app/intent_engine.py`
+4. `01_your_canada_version/app/response_orchestrator.py`
+5. `01_your_canada_version/app/demo_governance.py`
+6. `01_your_canada_version/app/query_router.py`
+7. `01_your_canada_version/app/retrieval_backend.py`
+8. `01_your_canada_version/app/analytics_tools.py`
+9. `01_your_canada_version/app/rag_pipeline.py`
+10. `01_your_canada_version/app/langgraph_flow.py`
+11. `01_your_canada_version/app/prompt_builder.py`

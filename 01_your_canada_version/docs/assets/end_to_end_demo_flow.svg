@@ -22,7 +22,7 @@
   <text class="label" x="260" y="120">UI</text><line class="lane" x1="260" y1="140" x2="260" y2="700" />
   <text class="label" x="420" y="120">App</text><line class="lane" x1="420" y1="140" x2="420" y2="700" />
   <text class="label" x="580" y="120">Access</text><line class="lane" x1="580" y1="140" x2="580" y2="700" />
-  <text class="label" x="740" y="120">Router</text><line class="lane" x1="740" y1="140" x2="740" y2="700" />
+  <text class="label" x="740" y="120">Intent/Plan</text><line class="lane" x1="740" y1="140" x2="740" y2="700" />
   <text class="label" x="900" y="120">Context</text><line class="lane" x1="900" y1="140" x2="900" y2="700" />
   <text class="label" x="1060" y="120">Tools</text><line class="lane" x1="1060" y1="140" x2="1060" y2="700" />
   <text class="label" x="1220" y="120">LLM</text><line class="lane" x1="1220" y1="140" x2="1220" y2="700" />
@@ -43,11 +43,11 @@
   <rect class="note" x="125" y="160" width="110" height="34" /><text class="note-text" x="180" y="182">Ask question</text>
   <rect class="note" x="285" y="200" width="110" height="34" /><text class="note-text" x="340" y="222">Submit query</text>
   <rect class="note" x="445" y="240" width="110" height="34" /><text class="note-text" x="500" y="262">Validate scope</text>
-  <rect class="note" x="445" y="320" width="270" height="34" /><text class="note-text" x="580" y="342">Route decision: performance explanation</text>
+  <rect class="note" x="445" y="320" width="270" height="34" /><text class="note-text" x="580" y="342">Intent + plan: performance explanation</text>
   <rect class="note" x="500" y="400" width="320" height="34" /><text class="note-text" x="660" y="422">Gather needed market and reference context</text>
   <rect class="note" x="930" y="440" width="100" height="34" /><text class="note-text" x="980" y="462">Run analysis</text>
-  <rect class="note" x="700" y="520" width="240" height="34" /><text class="note-text" x="820" y="542">Build grounded explanation</text>
-  <rect class="note" x="980" y="560" width="160" height="34" /><text class="note-text" x="1060" y="582">Draft answer</text>
+  <rect class="note" x="700" y="520" width="240" height="34" /><text class="note-text" x="820" y="542">Generate answer from evidence</text>
+  <rect class="note" x="980" y="560" width="160" height="34" /><text class="note-text" x="1060" y="582">Compliance review</text>
   <rect class="note" x="900" y="600" width="240" height="34" /><text class="note-text" x="1020" y="622">Write audit event</text>
   <rect class="note" x="740" y="640" width="210" height="34" /><text class="note-text" x="845" y="662">Return final response</text>
 </svg>

@@ -114,6 +114,10 @@ def enforce_identity_and_access(
 def _soften_advice_language(answer: str) -> tuple[str, list[str], list[str]]:
     softened_terms: list[str] = []
     blocked_terms: list[str] = []
+    protected_terms = {
+        "__PROTECTED_GIC_SINGULAR__": "Guaranteed Investment Certificate",
+        "__PROTECTED_GIC_PLURAL__": "Guaranteed Investment Certificates",
+    }
     updates = [
         (r"\byou should buy\b", "you may consider reviewing"),
         (r"\byou should sell\b", "you may consider reviewing"),
@@ -127,6 +131,8 @@ def _soften_advice_language(answer: str) -> tuple[str, list[str], list[str]]:
     ]
 
     updated_answer = answer
+    for token, original in protected_terms.items():
+        updated_answer = re.sub(re.escape(original), token, updated_answer, flags=re.IGNORECASE)
     for pattern, replacement in updates:
         if re.search(pattern, updated_answer, flags=re.IGNORECASE):
             updated_answer = re.sub(pattern, replacement, updated_answer, flags=re.IGNORECASE)
@@ -135,6 +141,9 @@ def _soften_advice_language(answer: str) -> tuple[str, list[str], list[str]]:
                 blocked_terms.append(lowered)
             else:
                 softened_terms.append(lowered)
+
+    for token, original in protected_terms.items():
+        updated_answer = updated_answer.replace(token, original)
 
     return updated_answer, softened_terms, blocked_terms
 

@@ -21,6 +21,21 @@ SPENDING_ROUTE_TERMS = {
     "total",
 }
 
+NEGATION_HINTS = {
+    "not",
+    "dont",
+    "don't",
+    "do not",
+    "did not",
+    "didn't",
+    "exclude",
+    "excluding",
+    "except",
+    "other than",
+    "outside",
+    "non",
+}
+
 SPENDING_CATEGORY_GROUPS = {
     "Food": {
         "categories": ["Groceries", "Dining"],
@@ -80,6 +95,9 @@ def normalize_query_text(query: str) -> str:
         expansions.extend(alias.lower() for alias in category_match["categories"])
         if category_match["label"].lower() == "food":
             expansions.extend(["food", "groceries", "dining"])
+        spending_scope = extract_spending_scope(query, category_match=category_match)
+        if spending_scope and spending_scope["mode"] == "exclude":
+            expansions.extend(["excluding", "other than", "non"])
 
     return " ".join(part for part in [query_lower, *expansions] if part)
 
@@ -118,6 +136,46 @@ def extract_spending_category_match(query: str) -> dict | None:
     return {
         "label": ", ".join(matched_labels),
         "categories": unique_categories,
+    }
+
+
+def is_negative_spending_filter(query: str, category_match: dict | None = None) -> bool:
+    query_lower = " ".join(str(query).lower().split())
+    category_match = category_match or extract_spending_category_match(query)
+    if category_match is None:
+        return False
+
+    has_negation = any(hint in query_lower for hint in NEGATION_HINTS)
+    has_exclusion_phrase = any(
+        phrase in query_lower
+        for phrase in [
+            "not spend on",
+            "not spending on",
+            "dont spend on",
+            "don't spend on",
+            "do not spend on",
+            "except",
+            "excluding",
+            "other than",
+            "outside of",
+            "outside",
+            "non-food",
+            "non food",
+        ]
+    )
+    return has_negation and has_exclusion_phrase
+
+
+def extract_spending_scope(query: str, category_match: dict | None = None) -> dict | None:
+    category_match = category_match or extract_spending_category_match(query)
+    if category_match is None:
+        return None
+
+    mode = "exclude" if is_negative_spending_filter(query, category_match=category_match) else "include"
+    return {
+        "mode": mode,
+        "label": category_match["label"],
+        "categories": category_match["categories"],
     }
 
 
