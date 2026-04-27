@@ -20,6 +20,9 @@ if not exist "%APP_PATH%" (
 )
 
 cd /d "%REPO_ROOT%"
+set "VIRTUAL_ENV=%REPO_ROOT%\.venv"
+set "PATH=%VIRTUAL_ENV%\Scripts;%PATH%"
+set "PYTHONNOUSERSITE=1"
 "%PYTHON_PATH%" -c "import socket,sys; start=int(sys.argv[1]); port=next(p for p in range(start,start+50) if (lambda s,p: (s.connect_ex(('127.0.0.1',p))!=0))(socket.socket(),p)); print(port)" "%DEFAULT_PORT%" > "%TEMP%\canada_app_port.txt"
 set /p APP_PORT=<"%TEMP%\canada_app_port.txt"
 

@@ -12,7 +12,8 @@ if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
 from intent_engine import parse_intent, plan_capabilities
-from local_financial_qa import analyze_financial_data_local
+from intent_engine import IntentSchema
+from local_financial_qa import analyze_financial_data_local, answer_from_rules, build_summary, format_spending_answer_from_intent, load_financial_context
 from prompt_builder import build_language_instruction, detect_query_language
 from retrieval_backend import LocalIndexRetriever
 
@@ -24,6 +25,35 @@ class IntentWorkflowTests(unittest.TestCase):
         self.assertEqual(intent.domain, "spending")
         self.assertEqual(intent.operator, "include")
         self.assertIn("Food", intent.target_entities)
+
+    def test_food_spending_in_three_months_uses_latest_three_month_window(self) -> None:
+        summary = build_summary(load_financial_context())
+        answer = answer_from_rules("how much i spend on food in 3 month", summary)
+        self.assertIn("latest 3 months", answer)
+        self.assertIn("April 2025 to June 2025", answer)
+        self.assertIn("583.15", answer)
+        self.assertNotIn("1,189.46", answer)
+
+    def test_food_spending_without_time_window_uses_full_loaded_window(self) -> None:
+        summary = build_summary(load_financial_context())
+        answer = answer_from_rules("How much did I spend on food?", summary)
+        self.assertIn("6-month client record", answer)
+        self.assertIn("January 2025 to June 2025", answer)
+        self.assertIn("1,189.46", answer)
+
+    def test_chinese_food_spending_uses_gpt_intent_category_and_local_time_scope(self) -> None:
+        summary = build_summary(load_financial_context())
+        intent = IntentSchema(domain="spending", operator="include", target_entities=["Food"], confidence="high")
+        query = "\u6211\u6700\u8fd13\u4e2a\u6708\u98df\u7269\u82b1\u4e86\u591a\u5c11\u94b1"
+        answer = format_spending_answer_from_intent(summary, intent, query)
+        self.assertIn("latest 3 months", answer)
+        self.assertIn("583.15", answer)
+
+    def test_rent_spending_in_three_months_uses_latest_three_month_window(self) -> None:
+        summary = build_summary(load_financial_context())
+        answer = answer_from_rules("how much did I spend on rent in 3 months", summary)
+        self.assertIn("latest 3 months", answer)
+        self.assertIn("7,050.00", answer)
 
     def test_non_food_spending_intent_uses_exclude_operator(self) -> None:
         with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):

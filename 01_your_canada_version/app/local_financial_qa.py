@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from calendar import month_name
 import copy
 import os
+import re
 import time
 
 from analytics_tools import analyze_portfolio_performance_tools
@@ -39,6 +41,7 @@ from query_router import (
     route_query,
 )
 from query_understanding import extract_spending_category_match, extract_spending_scope, normalize_query_text
+from query_understanding import SPENDING_CATEGORY_GROUPS
 from rag_pipeline import retrieve_reference_context
 from recommendation_engine import score_product_recommendations
 from response_orchestrator import OrchestratedContext, gather_orchestrated_context
@@ -78,8 +81,29 @@ def format_money(value: float) -> str:
     return f"{sign}${abs(amount):,.2f}"
 
 
+def openai_runtime_available() -> bool:
+    return bool(os.getenv("OPENAI_API_KEY")) and OpenAI is not None
+
+
+def require_openai_runtime() -> None:
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError(
+            "OpenAI is mandatory for this app, but OPENAI_API_KEY is missing. "
+            "Create or update 01_your_canada_version/.env, then restart the app."
+        )
+    if OpenAI is None:
+        raise RuntimeError(
+            "OpenAI is mandatory for this app, but the openai Python package is not installed in the current runtime. "
+            "Start the app with .\\start_canada_app.cmd or install openai into this Python environment."
+        )
+
+
 def format_month_label(year: int | float, month: int | float) -> str:
     return f"{int(year)}-{int(month):02d}"
+
+
+def format_month_name(year: int | float, month: int | float) -> str:
+    return f"{month_name[int(month)]} {int(year)}"
 
 
 def split_spending_buckets(summary: dict) -> dict:
@@ -371,6 +395,13 @@ def build_summary(context: FinancialContext) -> dict:
         .sort_values(ascending=False)
         .round(2)
     )
+    category_monthly_spending = (
+        spending.assign(year=spending["date"].dt.year, month=spending["date"].dt.month)
+        .groupby(["year", "month", "category"], dropna=False)["amount"]
+        .sum()
+        .reset_index()
+        .sort_values(["year", "month", "category"])
+    )
     top_spending = (
         category_spending_totals
         .head(5)
@@ -401,6 +432,7 @@ def build_summary(context: FinancialContext) -> dict:
         "average_monthly_spending": round(float(monthly_spending["amount"].mean()), 2) if not monthly_spending.empty else 0.0,
         "top_spending_categories": top_spending.to_dict(),
         "category_spending_totals": category_spending_totals.to_dict(),
+        "category_monthly_spending": category_monthly_spending.round({"amount": 2}).to_dict(orient="records"),
         "monthly_spending": monthly_spending.to_dict(orient="records"),
         "user_profile": {
             "user_id": user_record.get("userid"),
@@ -512,8 +544,103 @@ def build_spending_analysis(summary: dict) -> dict:
     }
 
 
-def format_category_spending_answer(summary: dict, category_match: dict) -> str:
-    category_totals = summary.get("category_spending_totals", {})
+def extract_spending_time_scope(query: str) -> dict | None:
+    query_text = " ".join(str(query or "").lower().split())
+    patterns = [
+        r"\b(?:in|last|past|recent|latest)\s+(\d{1,2})\s*months?\b",
+        r"\b(\d{1,2})\s*months?\b",
+        r"最近\s*(\d{1,2})\s*个?月",
+        r"过去\s*(\d{1,2})\s*个?月",
+        r"近\s*(\d{1,2})\s*个?月",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, query_text)
+        if not match:
+            continue
+        month_count = int(match.group(1))
+        if month_count <= 0:
+            return None
+        return {
+            "mode": "latest_available",
+            "month_count": month_count,
+        }
+    return None
+
+
+def available_spending_months(summary: dict) -> list[tuple[int, int]]:
+    months: set[tuple[int, int]] = set()
+    for row in summary.get("category_monthly_spending", []) or []:
+        if row.get("year") is None or row.get("month") is None:
+            continue
+        months.add((int(row["year"]), int(row["month"])))
+    return sorted(months)
+
+
+def resolve_spending_time_scope(summary: dict, time_scope: dict | None = None) -> dict:
+    months = available_spending_months(summary)
+    if not months:
+        return {
+            "mode": "all_available",
+            "months": [],
+            "label": "the loaded data",
+            "is_filtered": False,
+        }
+
+    if time_scope and time_scope.get("mode") == "latest_available":
+        requested_count = int(time_scope.get("month_count", 0))
+        selected_months = months[-requested_count:] if requested_count > 0 else months
+        actual_count = len(selected_months)
+        return {
+            "mode": "latest_available",
+            "month_count": requested_count,
+            "actual_month_count": actual_count,
+            "months": selected_months,
+            "label": format_spending_window_label(selected_months, requested_count=requested_count),
+            "is_filtered": True,
+        }
+
+    return {
+        "mode": "all_available",
+        "actual_month_count": len(months),
+        "months": months,
+        "label": format_spending_window_label(months),
+        "is_filtered": False,
+    }
+
+
+def format_spending_window_label(months: list[tuple[int, int]], requested_count: int | None = None) -> str:
+    if not months:
+        return "the loaded data"
+    start_year, start_month = months[0]
+    end_year, end_month = months[-1]
+    date_range = f"{format_month_name(start_year, start_month)} to {format_month_name(end_year, end_month)}"
+    if requested_count is not None:
+        return f"the latest {requested_count} months in the loaded data ({date_range})"
+    month_count = len(months)
+    return f"the {month_count}-month client record ({date_range})"
+
+
+def category_totals_for_time_scope(summary: dict, resolved_scope: dict) -> dict[str, float]:
+    if not resolved_scope.get("is_filtered"):
+        return {
+            str(category): float(amount)
+            for category, amount in (summary.get("category_spending_totals", {}) or {}).items()
+        }
+
+    selected_months = set(resolved_scope.get("months", []))
+    totals: dict[str, float] = {}
+    for row in summary.get("category_monthly_spending", []) or []:
+        month_key = (int(row["year"]), int(row["month"]))
+        if month_key not in selected_months:
+            continue
+        category = str(row["category"])
+        totals[category] = totals.get(category, 0.0) + float(row.get("amount", 0.0))
+    return dict(sorted(((category, round(amount, 2)) for category, amount in totals.items()), key=lambda item: item[1], reverse=True))
+
+
+def format_category_spending_answer(summary: dict, category_match: dict, time_scope: dict | None = None) -> str:
+    resolved_scope = resolve_spending_time_scope(summary, time_scope)
+    category_totals = category_totals_for_time_scope(summary, resolved_scope)
     matched_categories = category_match.get("categories", [])
     label = category_match.get("label", "that category")
 
@@ -525,7 +652,7 @@ def format_category_spending_answer(summary: dict, category_match: dict) -> str:
 
     if total_amount <= 0:
         return (
-            f"I could not find any `{label}` spending rows in the current six-month client record (January 2025 to June 2025).\n\n"
+            f"I could not find any `{label}` spending rows in {resolved_scope['label']}.\n\n"
             "Try a related category such as groceries, dining, rent, transportation, or utilities."
         )
 
@@ -540,7 +667,7 @@ def format_category_spending_answer(summary: dict, category_match: dict) -> str:
         )
 
     return (
-        f"From the six-month client record (January 2025 to June 2025), total spending on `{label}` was `{total_amount:,.2f}`.\n\n"
+        f"From {resolved_scope['label']}, total spending on `{label}` was `{total_amount:,.2f}`.\n\n"
         "Breakdown:\n"
         f"{breakdown_lines}"
         f"{mapping_note}\n\n"
@@ -548,8 +675,40 @@ def format_category_spending_answer(summary: dict, category_match: dict) -> str:
     )
 
 
-def format_non_category_spending_answer(summary: dict, category_match: dict) -> str:
-    category_totals = summary.get("category_spending_totals", {})
+def spending_category_from_intent(intent: IntentSchema) -> dict | None:
+    intent_entities = [
+        str(entity).strip().lower()
+        for entity in (intent.target_entities or [])
+        if str(entity).strip()
+    ]
+    if not intent_entities:
+        return None
+
+    for label, config in SPENDING_CATEGORY_GROUPS.items():
+        category_names = [str(category).lower() for category in config.get("categories", [])]
+        aliases = [str(alias).lower() for alias in config.get("aliases", [])]
+        candidates = {label.lower(), *category_names, *aliases}
+        if any(entity in candidates for entity in intent_entities):
+            return {
+                "label": label,
+                "categories": config["categories"],
+            }
+    return None
+
+
+def format_spending_answer_from_intent(summary: dict, intent: IntentSchema, query: str) -> str:
+    category_match = extract_spending_category_match(query) or spending_category_from_intent(intent)
+    time_scope = extract_spending_time_scope(query)
+    if category_match:
+        if intent.operator == "exclude":
+            return format_non_category_spending_answer(summary, category_match, time_scope=time_scope)
+        return format_category_spending_answer(summary, category_match, time_scope=time_scope)
+    return format_spending_summary_answer(summary, query=query)
+
+
+def format_non_category_spending_answer(summary: dict, category_match: dict, time_scope: dict | None = None) -> str:
+    resolved_scope = resolve_spending_time_scope(summary, time_scope)
+    category_totals = category_totals_for_time_scope(summary, resolved_scope)
     excluded_categories = set(category_match.get("categories", []))
     label = category_match.get("label", "that category")
 
@@ -562,7 +721,7 @@ def format_non_category_spending_answer(summary: dict, category_match: dict) -> 
 
     if total_amount <= 0:
         return (
-            f"If you mean spending outside `{label}`, I could not find any remaining debit categories in the current six-month client record (January 2025 to June 2025)."
+            f"If you mean spending outside `{label}`, I could not find any remaining debit categories in {resolved_scope['label']}."
         )
 
     top_lines = "\n".join(
@@ -571,7 +730,7 @@ def format_non_category_spending_answer(summary: dict, category_match: dict) -> 
     )
     excluded_lines = ", ".join(sorted(excluded_categories))
     return (
-        f"If you mean spending outside `{label}`, the six-month client record (January 2025 to June 2025) shows `{total_amount:,.2f}` spent on all other categories.\n\n"
+        f"If you mean spending outside `{label}`, {resolved_scope['label']} shows `{total_amount:,.2f}` spent on all other categories.\n\n"
         f"- Excluded categories: {excluded_lines}\n"
         "Largest remaining categories:\n"
         f"{top_lines}\n\n"
@@ -1912,6 +2071,7 @@ def answer_from_rules(query: str, summary: dict) -> str:
 
     category_match = extract_spending_category_match(query)
     spending_scope = extract_spending_scope(query, category_match=category_match)
+    time_scope = extract_spending_time_scope(query)
     asks_account_count = ("how many" in query_lower and "account" in query_lower) or "account count" in query_lower
     asks_cash_position = any(
         term in query_lower
@@ -1949,8 +2109,8 @@ def answer_from_rules(query: str, summary: dict) -> str:
 
     if category_match and is_spending_query(query):
         if spending_scope and spending_scope["mode"] == "exclude":
-            return format_non_category_spending_answer(summary, category_match)
-        return format_category_spending_answer(summary, category_match)
+            return format_non_category_spending_answer(summary, category_match, time_scope=time_scope)
+        return format_category_spending_answer(summary, category_match, time_scope=time_scope)
 
     if is_spending_query(query):
         return format_spending_summary_answer(summary, query=query)
@@ -1997,15 +2157,7 @@ def answer_with_rag(
     retrieval_result = retrieval_result or retrieve_reference_context(query, top_k=4)
     rag_sources = format_reference_sources(retrieval_result.get("chunks", []))
 
-    if not rag_sources:
-        return {
-            "answer": answer_from_rules(query, summary),
-            "analysis": None,
-            "mode": "rag_empty_fallback",
-            "rag_sources": [],
-            "request_preview": None,
-            "warning": "The local RAG layer did not return any matching finance references, so the app used the regular fallback answer.",
-        }
+    require_openai_runtime()
 
     if is_fhsa_tfsa_comparison_query(query):
         return {
@@ -2017,14 +2169,6 @@ def answer_with_rag(
         }
 
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or OpenAI is None:
-        return {
-            "answer": format_rag_answer_from_chunks(query, retrieval_result),
-            "analysis": None,
-            "mode": "rag_rules",
-            "rag_sources": rag_sources,
-            "request_preview": None,
-        }
 
     model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     request_preview = build_rag_llm_request(
@@ -2103,19 +2247,7 @@ def answer_with_rag(
                 "rag_sources": rag_sources,
             }
         except Exception as llm_error:
-            return {
-                "answer": format_rag_answer_from_chunks(query, retrieval_result),
-                "analysis": None,
-                "mode": "rag_llm_error",
-                "model": model,
-                "request_preview": request_preview,
-                "warning": combine_warnings(
-                    backend_warning,
-                    "The LLM RAG synthesis step failed, so the app used the retrieved source summary instead.",
-                ),
-                "error": str(llm_error),
-                "rag_sources": rag_sources,
-            }
+            raise RuntimeError(f"OpenAI RAG synthesis failed, so the request was stopped: {llm_error}") from llm_error
 
 
 def answer_with_llm(
@@ -2130,13 +2262,7 @@ def answer_with_llm(
     instruction_suffix: str | None = None,
 ) -> dict:
     api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or OpenAI is None:
-        return {
-            "answer": fallback_answer or answer_from_rules(query, summary),
-            "analysis": None,
-            "mode": "rules",
-            "request_preview": None,
-        }
+    require_openai_runtime()
 
     model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     request_preview = build_general_llm_request(
@@ -2205,7 +2331,7 @@ def answer_with_llm(
                 model=model,
                 instructions=request_preview["instructions"],
                 input=request_preview["input"],
-            ),
+            )
             return {
                 "answer": response.output_text.strip(),
                 "analysis": None,
@@ -2218,15 +2344,7 @@ def answer_with_llm(
                 ),
             }
         except Exception as llm_error:
-            return {
-                "answer": fallback_answer or answer_from_rules(query, summary),
-                "analysis": None,
-                "mode": "llm_error",
-                "model": model,
-                "request_preview": request_preview,
-                "warning": backend_warning,
-                "error": str(llm_error),
-            }
+            raise RuntimeError(f"OpenAI generation failed, so the request was stopped: {llm_error}") from llm_error
 
 
 def verify_access_from_summary(request_metadata: dict, summary: dict) -> dict:
@@ -2324,19 +2442,24 @@ def build_performance_extra_sections(
 def build_spending_tool_output(query: str, summary: dict) -> dict:
     category_match = extract_spending_category_match(query)
     spending_scope = extract_spending_scope(query, category_match=category_match)
+    time_scope = extract_spending_time_scope(query)
+    resolved_time_scope = resolve_spending_time_scope(summary, time_scope)
+    scoped_category_totals = category_totals_for_time_scope(summary, resolved_time_scope)
     buckets = split_spending_buckets(summary)
     default_answer = answer_from_rules(query, summary)
     return {
         "tool_name": "spending_tool",
         "query_scope": spending_scope or {"mode": "summarize", "label": None, "categories": []},
+        "time_scope": resolved_time_scope,
         "category_match": category_match,
-        "sample_window": "January 2025 to June 2025",
+        "sample_window": resolved_time_scope["label"],
         "total_debits": summary["total_debits"],
         "total_credits": summary["total_credits"],
         "net_cash_flow": summary["net_cash_flow"],
         "average_monthly_spending": summary["average_monthly_spending"],
         "top_spending_categories": summary["top_spending_categories"],
         "category_spending_totals": summary.get("category_spending_totals", {}),
+        "scoped_category_spending_totals": scoped_category_totals,
         "top_living_categories": buckets["top_living_expenses"],
         "living_spending_total": buckets["living_total"],
         "savings_contribution_total": buckets["contribution_total"],
@@ -2977,7 +3100,7 @@ def execute_route_analysis(
             "recommendation_cards": None,
         }
     elif route_decision.route == "spending_rules":
-        spending_answer = answer_from_rules(query, summary)
+        spending_answer = format_spending_answer_from_intent(summary, intent, query)
         spending_analysis = build_spending_analysis(summary)
         spending_analysis["answer_markdown"] = spending_answer
         if use_llm:
@@ -2988,7 +3111,13 @@ def execute_route_analysis(
                 chat_history=chat_history,
                 extra_sections={
                     "deterministic_answer_draft": spending_answer,
-                    "spending_query_interpretation": extract_spending_scope(query),
+                    "spending_query_interpretation": {
+                        "intent_domain": intent.domain,
+                        "intent_operator": intent.operator,
+                        "intent_target_entities": intent.target_entities,
+                        "local_scope": extract_spending_scope(query),
+                        "time_scope": resolve_spending_time_scope(summary, extract_spending_time_scope(query)),
+                    },
                 },
                 fallback_answer=spending_answer,
                 instruction_suffix=(
@@ -3241,6 +3370,10 @@ def analyze_financial_data_local(
     chat_history: list[dict] | None = None,
     request_metadata: dict | None = None,
 ) -> dict:
+    if not use_llm:
+        raise RuntimeError("OpenAI is mandatory for this app. The backend received use_llm=False and stopped the request.")
+    require_openai_runtime()
+
     started_at = time.perf_counter()
     normalized_history = normalize_chat_history(chat_history)
     conversation_resolution = resolve_follow_up_query(query, normalized_history)

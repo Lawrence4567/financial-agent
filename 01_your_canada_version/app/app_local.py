@@ -18,6 +18,8 @@ from local_financial_qa import (
     build_scenario_summary,
     build_summary,
     load_financial_context,
+    openai_runtime_available,
+    require_openai_runtime,
 )
 from rag_pipeline import get_rag_index_status
 
@@ -681,6 +683,12 @@ def render_chat_history_panel() -> None:
 def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> None:
     if not query:
         return
+    if not has_openai_key:
+        st.error(
+            "OpenAI is mandatory for this app, but it is not available in the current Python runtime. "
+            "Please restart with .\\start_canada_app.cmd."
+        )
+        return
 
     st.session_state.chat_history.append({"role": "user", "content": query, "analysis": None, "mode": "input"})
     with st.chat_message("user"):
@@ -688,12 +696,16 @@ def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> No
 
     with st.chat_message("assistant"):
         with st.spinner("Analysing local financial data..."):
-            result = analyze_financial_data_local(
-                query,
-                use_llm=has_openai_key,
-                chat_history=st.session_state.chat_history,
-                request_metadata=request_metadata,
-            )
+            try:
+                result = analyze_financial_data_local(
+                    query,
+                    use_llm=has_openai_key,
+                    chat_history=st.session_state.chat_history,
+                    request_metadata=request_metadata,
+                )
+            except Exception as exc:
+                st.error(f"OpenAI-required request failed: {exc}")
+                return
         result["user_query"] = query
         render_assistant_message(result, developer_mode=st.session_state.developer_mode)
 
@@ -1021,10 +1033,12 @@ summary = build_summary(context)
 with st.sidebar:
     page = st.radio("Workspace", ["Copilot", "Scenario Planner", "Dashboard"], label_visibility="visible")
     st.header("Run Mode")
-    has_openai_key = bool(os.getenv("OPENAI_API_KEY"))
+    has_openai_key = openai_runtime_available()
     rag_status = get_rag_index_status()
-    mode_label = "Hybrid mode" if has_openai_key else "Rules only"
+    mode_label = "Hybrid mode" if has_openai_key else "OpenAI unavailable"
     st.write(f"- Current mode: `{mode_label}`")
+    if os.getenv("OPENAI_API_KEY") and not has_openai_key:
+        st.write("- OpenAI key found, but the OpenAI Python package is not available in this runtime.")
     if has_openai_key:
         st.write(f"- Model: `{os.getenv('OPENAI_MODEL', 'gpt-5.4')}`")
     st.session_state.developer_mode = st.checkbox(
@@ -1048,6 +1062,22 @@ with st.sidebar:
             st.write(f"- RAG chunks: `{rag_status['chunk_count']}`")
         if rag_status.get("embedding_provider"):
             st.write(f"- Retrieval backend: `{rag_status['embedding_provider']}`")
+
+if not has_openai_key:
+    st.error(
+        "OpenAI is required to run this app. The current Python runtime cannot use OpenAI, so the app is stopped."
+    )
+    st.info(
+        "Start from the project root with `.\\start_canada_app.cmd`. "
+        "This uses the project virtual environment where the OpenAI package is installed."
+    )
+    st.stop()
+
+try:
+    require_openai_runtime()
+except Exception as exc:
+    st.error(f"OpenAI startup check failed: {exc}")
+    st.stop()
 
 if page == "Copilot":
     render_copilot(has_openai_key, developer_mode=st.session_state.developer_mode)

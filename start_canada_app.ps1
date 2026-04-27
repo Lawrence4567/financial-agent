@@ -12,4 +12,8 @@ if (-not (Test-Path $appPath)) {
     throw "Cannot find the Streamlit app at $appPath"
 }
 
+$env:VIRTUAL_ENV = Join-Path $repoRoot ".venv"
+$env:PATH = (Join-Path $env:VIRTUAL_ENV "Scripts") + [IO.Path]::PathSeparator + $env:PATH
+$env:PYTHONNOUSERSITE = "1"
+
 & $pythonPath -m streamlit run $appPath --browser.gatherUsageStats false @args

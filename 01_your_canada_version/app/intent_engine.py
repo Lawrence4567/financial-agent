@@ -459,11 +459,15 @@ def build_rules_fallback_intent(query: str, use_llm: bool, chat_history: Optiona
 def parse_intent(query: str, use_llm: bool = True, chat_history: Optional[List[dict]] = None) -> IntentSchema:
     backend = os.getenv("INTENT_BACKEND", "llm").strip().lower()
     if backend != "llm" or not use_llm:
-        return build_rules_fallback_intent(query, use_llm=use_llm, chat_history=chat_history)
+        raise RuntimeError(
+            "OpenAI intent parsing is mandatory. Set INTENT_BACKEND=llm and run the app with OpenAI enabled."
+        )
 
     client = _get_openai_client()
     if client is None:
-        return build_rules_fallback_intent(query, use_llm=use_llm, chat_history=chat_history)
+        raise RuntimeError(
+            "OpenAI intent parsing is mandatory, but OPENAI_API_KEY is missing or the openai package is not installed."
+        )
 
     history_text = format_chat_history_as_text(chat_history, max_messages=6, include_route=True, max_chars=900)
     follow_up_note = "This looks like a short follow-up query." if looks_like_follow_up_query(query) else "This looks like a standalone query."
@@ -495,14 +499,7 @@ def parse_intent(query: str, use_llm: bool = True, chat_history: Optional[List[d
             return apply_discoverable_intent_overrides(parsed, query)
         return apply_discoverable_intent_overrides(parsed.model_copy(update={"fallback_reason": None}), query)
     except Exception as exc:
-        return apply_discoverable_intent_overrides(
-            _intent_from_route_decision(
-                query,
-                route_query(query, use_llm=use_llm, chat_history=chat_history),
-                fallback_reason=f"LLM intent parsing failed, so rules fallback was used: {exc}",
-            ),
-            query,
-        )
+        raise RuntimeError(f"OpenAI intent parsing failed, so the request was stopped: {exc}") from exc
 
 
 def plan_capabilities(intent: IntentSchema, query: str) -> CapabilityPlan:
