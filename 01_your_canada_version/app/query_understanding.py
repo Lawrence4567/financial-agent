@@ -9,6 +9,14 @@ SPENDING_ROUTE_TERMS = {
     "spending",
     "expense",
     "expenses",
+    "habit",
+    "habits",
+    "cash habit",
+    "cash habits",
+    "spending habit",
+    "spending habits",
+    "money habit",
+    "money habits",
     "budget",
     "cash flow",
     "cashflow",
@@ -88,6 +96,9 @@ def normalize_query_text(query: str) -> str:
 
     if any(_contains_alias(query_lower, term) for term in ["spent", "pay", "paid", "cost", "costs", "payment", "payments"]):
         expansions.extend(["spend", "spending", "expense"])
+    if any(_contains_alias(query_lower, term) for term in ["habit", "habits"]):
+        if any(_contains_alias(query_lower, term) for term in ["cash", "money", "budget", "spending"]):
+            expansions.extend(["spending", "cash flow", "budget"])
 
     category_match = extract_spending_category_match(query)
     if category_match:
@@ -195,5 +206,9 @@ def is_semantic_spending_query(query: str) -> bool:
         r"what did i spend",
         r"what did i pay",
         r"money on",
+        r"cash habits?",
+        r"spending habits?",
+        r"money habits?",
+        r"understand .* cash habits",
     ]
     return any(re.search(pattern, normalized_query) for pattern in amount_patterns)

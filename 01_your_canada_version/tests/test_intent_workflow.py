@@ -13,6 +13,7 @@ if str(APP_DIR) not in sys.path:
 
 from intent_engine import parse_intent, plan_capabilities
 from local_financial_qa import analyze_financial_data_local
+from prompt_builder import build_language_instruction, detect_query_language
 from retrieval_backend import LocalIndexRetriever
 
 
@@ -58,6 +59,21 @@ class IntentWorkflowTests(unittest.TestCase):
         self.assertIn("recommendation_engine", plan.tool_calls)
         self.assertIn("reference_retrieval", plan.tool_calls)
 
+    def test_numeric_finance_domains_use_deterministic_answers(self) -> None:
+        examples = {
+            "Explain my current portfolio allocation.": "portfolio",
+            "Did I make or lose money this month?": "performance",
+            "What is happening in the market?": "market",
+        }
+        with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
+            for query, expected_domain in examples.items():
+                with self.subTest(query=query):
+                    intent = parse_intent(query, use_llm=False, chat_history=[])
+                    plan = plan_capabilities(intent, query)
+                    self.assertEqual(intent.domain, expected_domain)
+                    self.assertFalse(plan.requires_generation)
+                    self.assertFalse(plan.prefers_llm)
+
     def test_follow_up_query_keeps_recommendation_context(self) -> None:
         history = [
             {"role": "user", "content": "What should I focus on first?"},
@@ -66,6 +82,16 @@ class IntentWorkflowTests(unittest.TestCase):
         with patch.dict(os.environ, {"INTENT_BACKEND": "rules_fallback"}, clear=False):
             intent = parse_intent("what about that one", use_llm=False, chat_history=history)
         self.assertEqual(intent.domain, "recommendation")
+
+    def test_language_instruction_prefers_current_english_question(self) -> None:
+        query = "What product fits my goals best right now?"
+        self.assertEqual(detect_query_language(query), "english")
+        self.assertIn("Answer in English.", build_language_instruction(query))
+
+    def test_language_instruction_detects_chinese_with_account_acronyms(self) -> None:
+        query = "FHSA和TFSA我该先选哪个？"
+        self.assertEqual(detect_query_language(query), "simplified_chinese")
+        self.assertIn("Answer in Simplified Chinese.", build_language_instruction(query))
 
     def test_local_index_retriever_contract(self) -> None:
         retriever = LocalIndexRetriever()
@@ -125,6 +151,27 @@ class IntentWorkflowTests(unittest.TestCase):
             )
         kinds = [item["kind"] for item in result["answer_citations"]]
         self.assertIn("retrieved_reference", kinds)
+
+    def test_recommendation_answer_and_cards_stay_aligned_to_top_three(self) -> None:
+        result = analyze_financial_data_local(
+            "What product fits my goals best?",
+            use_llm=False,
+            request_metadata={
+                "user_id": "501",
+                "session_id": "session-recommendation-alignment",
+                "channel": "web_app",
+                "device": "browser",
+                "timestamp": "2026-04-21T12:30:00Z",
+                "sso_provider": "demo_local_login",
+            },
+        )
+        self.assertEqual(result["route_label"], "Recommendation rules")
+        self.assertLessEqual(len(result["recommendation_cards"]), 3)
+        self.assertEqual(
+            len(result["tool_outputs"]["recommendation_engine"]["scored_recommendations"]),
+            len(result["recommendation_cards"]),
+        )
+        self.assertNotIn("The recommendation cards below show", result["answer"])
 
 
 if __name__ == "__main__":

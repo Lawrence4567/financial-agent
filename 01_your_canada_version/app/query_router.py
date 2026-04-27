@@ -174,6 +174,7 @@ def is_architecture_query(query: str) -> bool:
 
 def is_recommendation_query(query: str) -> bool:
     query_lower = query.lower()
+    product_terms = ["fhsa", "tfsa", "rrsp", "gic", "high-interest savings", "high interest savings", "etf"]
     recommendation_keywords = [
         "fit my goals",
         "focus on",
@@ -193,7 +194,18 @@ def is_recommendation_query(query: str) -> bool:
         "should i prioritize",
         "should i focus on",
     ]
-    return any(keyword in query_lower for keyword in recommendation_keywords)
+    if any(keyword in query_lower for keyword in recommendation_keywords):
+        return True
+    return any(term in query_lower for term in product_terms) and any(
+        phrase in query_lower
+        for phrase in [
+            "what about",
+            "how about",
+            "instead",
+            "better for me",
+            "right now",
+        ]
+    )
 
 
 def is_market_snapshot_query(query: str) -> bool:

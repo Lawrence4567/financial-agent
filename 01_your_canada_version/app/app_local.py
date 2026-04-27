@@ -11,6 +11,7 @@ import streamlit as st
 from conversation_memory import get_recent_chat_history
 from data_sources import ENV_FILE_USED, fetch_market_snapshot
 from demo_governance import build_request_metadata
+from query_understanding import normalize_query_text
 from local_financial_qa import (
     analyze_financial_data_local,
     build_recommendation_cards,
@@ -122,6 +123,13 @@ if "demo_session_id" not in st.session_state:
     st.session_state.demo_session_id = build_request_metadata(user_id="demo").session_id
 
 
+def safe_financial_markdown(text: object) -> str:
+    """Escape currency markers so Streamlit Markdown does not render them as LaTeX."""
+    if text is None:
+        return ""
+    return str(text).replace("\\$", "$").replace("$", "\\$")
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def load_cached_market_snapshot() -> dict:
     return fetch_market_snapshot()
@@ -214,13 +222,13 @@ def render_structured_analysis(analysis: dict) -> None:
         st.write(f"- Confidence: `{analysis['confidence']}`")
         st.write("Key insights:")
         for item in analysis["key_insights"]:
-            st.write(f"- {item}")
+            st.write(safe_financial_markdown(f"- {item}"))
         st.write("Recommended products:")
         for item in analysis["recommended_products"]:
-            st.write(f"- {item}")
+            st.write(safe_financial_markdown(f"- {item}"))
         st.write("Next actions:")
         for item in analysis["next_actions"]:
-            st.write(f"- {item}")
+            st.write(safe_financial_markdown(f"- {item}"))
 
 
 def render_request_preview(preview: dict) -> None:
@@ -248,7 +256,7 @@ def render_rag_sources(sources: list[dict]) -> None:
         for source in sources:
             st.markdown(f"**{source['title']}**")
             st.caption(f"Section: {source['section']} | Score: {source['score']}")
-            st.write(source["snippet"])
+            st.write(safe_financial_markdown(source["snippet"]))
             st.caption(source["source_file"])
 
 
@@ -266,9 +274,9 @@ def render_answer_citations(citations: list[dict]) -> None:
                 meta_parts.append(f"Score: {citation['score']:.3f}")
             st.caption(" | ".join(meta_parts))
             if citation.get("used_for"):
-                st.write(citation["used_for"])
+                st.write(safe_financial_markdown(citation["used_for"]))
             if citation.get("snippet"):
-                st.write(citation["snippet"])
+                st.write(safe_financial_markdown(citation["snippet"]))
             if citation.get("source"):
                 st.caption(citation["source"])
 
@@ -289,7 +297,7 @@ def render_intent_plan_details(message: dict) -> None:
         if message.get("generation_source"):
             st.write(f"- Generation source: `{message['generation_source']}`")
         if message.get("fallback_reason"):
-            st.write(f"- Fallback reason: {message['fallback_reason']}")
+            st.write(safe_financial_markdown(f"- Fallback reason: {message['fallback_reason']}"))
         if message.get("evidence_summary"):
             st.write("Evidence summary:")
             st.caption(message["evidence_summary"])
@@ -402,50 +410,114 @@ def render_kpi_card(label: str, value: str, note: str, compact: bool = False) ->
     )
 
 
+def message_contains_cjk(text: str) -> bool:
+    return any("\u4e00" <= char <= "\u9fff" for char in text or "")
+
+
+def is_recommendation_chat_message(message: dict) -> bool:
+    return bool(message.get("recommendation_cards"))
+
+
+def should_use_recommendation_brief(message: dict) -> bool:
+    text = (message.get("content") or message.get("answer") or "").strip()
+    if not text:
+        return True
+    if "\n\n" in text:
+        return True
+    return len(text.split()) > 45
+
+
+def build_recommendation_chat_brief(message: dict) -> str | None:
+    if not is_recommendation_chat_message(message):
+        return None
+
+    tool_outputs = message.get("tool_outputs") or {}
+    recommendation_tool = tool_outputs.get("recommendation_engine") or {}
+    query_polarity = recommendation_tool.get("query_polarity")
+    intent_operator = (message.get("intent") or {}).get("operator")
+    if query_polarity == "negative_recommendation" or intent_operator in {"compare", "deprioritize"}:
+        return None
+
+    user_query = normalize_query_text(message.get("user_query") or "")
+    cards = message.get("recommendation_cards") or []
+    if not cards:
+        return None
+
+    lead_name = cards[0]["product_name"]
+    second_name = cards[1]["product_name"] if len(cards) > 1 else None
+    third_name = cards[2]["product_name"] if len(cards) > 2 else None
+    chinese = message_contains_cjk(message.get("content") or "")
+
+    if any(
+        phrase in user_query
+        for phrase in [
+            "best first step",
+            "focus on first",
+            "what should i prioritize first",
+        ]
+    ):
+        if chinese:
+            return f"如果只看第一步，我会先从 **{lead_name}** 开始。"
+        return f"If we keep it to the first move only, I'd start with **{lead_name}**."
+
+    if "most sense" in user_query:
+        if chinese:
+            return f"如果一定要我只给一个最强答案，我会选 **{lead_name}**。"
+        return f"If I had to give you just one strongest answer, I'd pick **{lead_name}**."
+
+    if "fits me best" in user_query or "best for me" in user_query:
+        if chinese:
+            return f"如果只看整体匹配度，**{lead_name}** 现在最贴合你。"
+        return f"If we look at overall fit, **{lead_name}** is the strongest match for you right now."
+
+    if chinese:
+        parts = [f"如果我帮你把这件事简化，我会先从 **{lead_name}** 开始。"]
+        if second_name:
+            parts.append(f"然后把 **{second_name}** 当成更灵活的第二选择。")
+        if third_name:
+            parts.append(f"短期现金和应急金这部分，就让 **{third_name}** 来兜底。")
+        parts.append("真正行动前，再确认 eligibility 和 contribution room。")
+        return " ".join(parts)
+
+    parts = [f"If I were keeping this simple, I'd start with **{lead_name}** first."]
+    if second_name:
+        parts.append(f"I'd keep **{second_name}** as your flexible second option.")
+    if third_name:
+        parts.append(f"For short-term cash safety, I'd use **{third_name}** as the backup piece.")
+    parts.append("Before opening anything, double-check eligibility and contribution room.")
+    return " ".join(parts)
+
+
 def render_recommendation_cards(cards, show_heading: bool = True) -> None:
     if not cards:
         return
 
-    badge_help_map = {
-        "Best first step": "The strongest place to begin right now",
-        "Strong second option": "Very useful once the first step is underway",
-        "Useful next move": "Helpful after the first two priorities are covered",
-        "Consider later": "Reasonable later, but not before the top priorities",
-    }
-
     primary_card = cards[:1]
     secondary_cards = cards[1:3]
-    extra_cards = cards[3:]
 
     if show_heading:
-        st.markdown("#### Recommended Plan")
-        st.caption("One lead option, two strong supporting choices, and the rest tucked away.")
+        st.markdown("#### Why I'm Suggesting These")
+        st.caption("Open this only if you want the fuller reasoning and watchouts.")
 
     if primary_card:
         card = primary_card[0]
         with st.container(border=True):
-            st.markdown("##### Best First Step")
+            st.caption("What I'd do first")
             st.markdown(f"**{card['product_name']}**")
-            st.caption(card["category"])
-            st.write(f"**Priority:** {card['display_priority']}")
-            st.caption(badge_help_map.get(card["display_priority"], ""))
-            st.write(f"**Why now:** {card['why_now']}")
-            st.write(f"**Best for:** {card['best_for']}")
-            st.write(f"**Watchout:** {card['watchout']}")
+            st.write(safe_financial_markdown(f"**Why I'd pick this first:** {card['why_now']}"))
+            st.caption(f"Works best when: {card['best_for']}")
+            st.caption(f"Watch before acting: {card['watchout']}")
 
     if secondary_cards:
-        st.markdown("##### Strong Supporting Options")
+        st.caption("Good backup options")
         cols = st.columns(len(secondary_cards))
         for col, card in zip(cols, secondary_cards):
             with col:
                 with st.container(border=True):
                     st.markdown(f"**{card['product_name']}**")
-                    st.caption(card["category"])
-                    st.write(f"**Priority:** {card['display_priority']}")
-                    st.caption(badge_help_map.get(card["display_priority"], ""))
-                    st.write(f"**Why now:** {card['why_now']}")
-                    st.write(f"**Best for:** {card['best_for']}")
-                    st.write(f"**Watchout:** {card['watchout']}")
+                    st.write(safe_financial_markdown(f"**Why this still helps:** {card['why_now']}"))
+                    st.caption(f"Works best when: {card['best_for']}")
+                    st.caption(f"Watch before acting: {card['watchout']}")
 
 
 def should_collapse_recommendation_plan(mode: str | None) -> bool:
@@ -474,10 +546,69 @@ def should_render_market_snapshot_cards(mode: str | None) -> bool:
     return mode in market_card_modes
 
 
+def should_render_answer_citations(message: dict, developer_mode: bool = False) -> bool:
+    citations = message.get("answer_citations") or []
+    if not citations:
+        return False
+    if developer_mode:
+        return True
+    visible_kinds = {"retrieved_reference", "market_feed"}
+    if not any(citation.get("kind") in visible_kinds for citation in citations):
+        return False
+
+    user_query = (message.get("user_query") or "").lower()
+    route_label = (message.get("route_label") or "").lower()
+    explicit_source_request = any(
+        term in user_query
+        for term in [
+            "source",
+            "sources",
+            "rule",
+            "rules",
+            "eligibility",
+            "contribution limit",
+            "where did this come from",
+            "evidence",
+        ]
+    )
+    if explicit_source_request:
+        return True
+
+    # Keep normal chat clean: local calculations already explain themselves in
+    # "Why this answer"; detailed source lists are most useful for knowledge/RAG.
+    return "knowledge" in route_label or "rag" in route_label
+
+
+def render_why_explanation(message: dict, display_text: str, developer_mode: bool = False) -> None:
+    why_explanation = message.get("why_explanation") or []
+    has_recommendation_cards = bool(message.get("recommendation_cards"))
+    if not why_explanation and not has_recommendation_cards:
+        return
+
+    with st.expander("Why this answer", expanded=False):
+        if why_explanation:
+            st.caption("How the app arrived at this answer.")
+            for line in why_explanation:
+                st.write(safe_financial_markdown(f"- {line}"))
+
+        if has_recommendation_cards:
+            if why_explanation:
+                st.divider()
+            st.caption("Product fit details and watchouts.")
+            render_recommendation_cards(message["recommendation_cards"], show_heading=False)
+            text = message.get("content") or message.get("answer") or ""
+            if developer_mode and text and display_text and display_text != text:
+                st.divider()
+                st.caption("Raw assistant draft")
+                st.markdown(safe_financial_markdown(text))
+
+
 def render_assistant_message(message: dict, developer_mode: bool = False) -> None:
     text = message.get("content") or message.get("answer") or ""
-    if text:
-        st.markdown(text)
+    brief = build_recommendation_chat_brief(message) if should_use_recommendation_brief(message) else None
+    display_text = brief or text
+    if display_text:
+        st.markdown(safe_financial_markdown(display_text))
     if developer_mode and message.get("route_label"):
         route_reason = message.get("route_reason")
         st.caption(
@@ -486,6 +617,10 @@ def render_assistant_message(message: dict, developer_mode: bool = False) -> Non
         )
     if developer_mode and message.get("workflow_backend"):
         st.caption(f"Workflow backend: {message['workflow_backend']}")
+    if developer_mode and (message.get("conversation_resolution") or {}).get("is_follow_up"):
+        resolved_query = message.get("effective_query")
+        if resolved_query and resolved_query != message.get("user_query"):
+            st.caption(f"Follow-up resolved as: {resolved_query}")
     if developer_mode and message.get("generation_source"):
         st.caption(f"Generation source: {message['generation_source']}")
     if developer_mode and message.get("fallback_reason"):
@@ -499,13 +634,7 @@ def render_assistant_message(message: dict, developer_mode: bool = False) -> Non
         )
     if developer_mode and message.get("analysis"):
         render_structured_analysis(message["analysis"])
-    if message.get("recommendation_cards"):
-        if should_collapse_recommendation_plan(message.get("mode")):
-            with st.expander("Recommended Plan", expanded=False):
-                st.caption("Open to see the full ranked plan and product fit details.")
-                render_recommendation_cards(message["recommendation_cards"], show_heading=False)
-        else:
-            render_recommendation_cards(message["recommendation_cards"])
+    render_why_explanation(message, display_text=display_text, developer_mode=developer_mode)
     if (
         should_render_market_snapshot_cards(message.get("mode"))
         and message.get("market_snapshot")
@@ -513,7 +642,7 @@ def render_assistant_message(message: dict, developer_mode: bool = False) -> Non
     ):
         render_market_snapshot_cards(message["market_snapshot"])
         st.caption(f"As of {message['market_snapshot'].get('as_of', 'unknown')} | Source: {message['market_snapshot'].get('provider', 'unknown')}")
-    if message.get("answer_citations"):
+    if should_render_answer_citations(message, developer_mode=developer_mode):
         render_answer_citations(message["answer_citations"])
     if developer_mode and message.get("rag_sources"):
         render_rag_sources(message["rag_sources"])
@@ -546,7 +675,7 @@ def render_chat_history_panel() -> None:
         st.caption("The assistant now uses recent turns to interpret follow-up questions.")
         for message in history:
             role_label = "You" if message["role"] == "user" else "Assistant"
-            st.markdown(f"**{role_label}:** {message['content']}")
+            st.markdown(f"**{role_label}:** {safe_financial_markdown(message['content'])}")
 
 
 def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> None:
@@ -555,7 +684,7 @@ def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> No
 
     st.session_state.chat_history.append({"role": "user", "content": query, "analysis": None, "mode": "input"})
     with st.chat_message("user"):
-        st.markdown(query)
+        st.markdown(safe_financial_markdown(query))
 
     with st.chat_message("assistant"):
         with st.spinner("Analysing local financial data..."):
@@ -565,6 +694,7 @@ def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> No
                 chat_history=st.session_state.chat_history,
                 request_metadata=request_metadata,
             )
+        result["user_query"] = query
         render_assistant_message(result, developer_mode=st.session_state.developer_mode)
 
     st.session_state.chat_history.append(
@@ -594,6 +724,10 @@ def submit_query(query: str, has_openai_key: bool, request_metadata: dict) -> No
             "fallback_reason": result.get("fallback_reason"),
             "evidence_summary": result.get("evidence_summary"),
             "answer_citations": result.get("answer_citations"),
+            "why_explanation": result.get("why_explanation"),
+            "user_query": query,
+            "effective_query": result.get("effective_query"),
+            "conversation_resolution": result.get("conversation_resolution"),
         }
     )
 
@@ -682,8 +816,8 @@ def render_scenario_planner(summary: dict) -> None:
         with st.container(border=True):
             st.markdown(f"**{selected_result['meta']['title']}**")
             st.caption(selected_result["meta"]["subtitle"])
-            st.write(selected_result["meta"]["description"])
-            st.write(f"**Priority rule:** {selected_summary['priority_reason']}")
+            st.write(safe_financial_markdown(selected_result["meta"]["description"]))
+            st.write(safe_financial_markdown(f"**Priority rule:** {selected_summary['priority_reason']}"))
     with insight_cols[1]:
         with st.container(border=True):
             lead_card = selected_cards[0] if selected_cards else {}
@@ -794,7 +928,7 @@ def render_dashboard(summary: dict, context) -> None:
             for card in build_recommendation_cards(summary)[:3]
         ]
         for item in snapshot_cards:
-            st.write(f"- {item}")
+            st.write(safe_financial_markdown(f"- {item}"))
 
         st.subheader("Account Snapshot")
         account_preview = pd.DataFrame(summary["account_overview"]["accounts"][:5])[["account_name", "account_type", "balance", "goal"]]
@@ -811,17 +945,17 @@ def render_dashboard(summary: dict, context) -> None:
         profile = summary["user_profile"]
         left, right = st.columns(2)
         with left:
-            st.write(f"**Name:** {profile['name']}")
-            st.write(f"**Age:** {profile['age']}")
-            st.write(f"**Occupation:** {profile['occupation']}")
-            st.write(f"**Annual Income:** {profile['annual_income']}")
-            st.write(f"**Risk Tolerance:** {profile['risk_tolerance']}")
+            st.write(safe_financial_markdown(f"**Name:** {profile['name']}"))
+            st.write(safe_financial_markdown(f"**Age:** {profile['age']}"))
+            st.write(safe_financial_markdown(f"**Occupation:** {profile['occupation']}"))
+            st.write(safe_financial_markdown(f"**Annual Income:** {profile['annual_income']}"))
+            st.write(safe_financial_markdown(f"**Risk Tolerance:** {profile['risk_tolerance']}"))
         with right:
-            st.write(f"**Short-Term Goal:** {profile['short_term_goals']}")
-            st.write(f"**Long-Term Goal:** {profile['long_term_goal']}")
-            st.write(f"**Investment Experience:** {profile['investment_experience']}")
-            st.write(f"**Preferred Investments:** {profile['preferred_investment_types']}")
-            st.write(f"**Priority Rule:** {summary['priority_reason']}")
+            st.write(safe_financial_markdown(f"**Short-Term Goal:** {profile['short_term_goals']}"))
+            st.write(safe_financial_markdown(f"**Long-Term Goal:** {profile['long_term_goal']}"))
+            st.write(safe_financial_markdown(f"**Investment Experience:** {profile['investment_experience']}"))
+            st.write(safe_financial_markdown(f"**Preferred Investments:** {profile['preferred_investment_types']}"))
+            st.write(safe_financial_markdown(f"**Priority Rule:** {summary['priority_reason']}"))
 
     with data_tab:
         st.subheader("Transactions")
@@ -869,7 +1003,7 @@ def render_copilot(has_openai_key: bool, developer_mode: bool = False) -> None:
             if message["role"] == "assistant":
                 render_assistant_message(message, developer_mode=developer_mode)
             else:
-                st.markdown(message["content"])
+                st.markdown(safe_financial_markdown(message["content"]))
 
     request_metadata = build_request_metadata_for_ui(summary)
     user_query = st.chat_input("Ask about cash flow, account balances, portfolio positioning, market context, FHSA, TFSA, RRSP, or risk profile...")

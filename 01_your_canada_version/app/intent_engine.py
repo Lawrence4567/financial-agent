@@ -411,12 +411,18 @@ def apply_discoverable_intent_overrides(intent: IntentSchema, query: str) -> Int
         phrase in query_lower
         for phrase in ["not recommend", "avoid", "do not recommend", "don't recommend", "should i avoid"]
     ):
+        has_rule_signal = any(
+            term in query_lower for term in ["rule", "rules", "eligibility", "contribution", "withdrawal", "tax"]
+        )
         return intent.model_copy(
             update={
                 "domain": "recommendation",
                 "operator": "deprioritize",
                 "polarity": "negative",
                 "needs_recommendation": True,
+                "needs_rag": has_rule_signal,
+                "needs_market_data": False,
+                "needs_portfolio_tools": False,
             }
         )
     return intent
@@ -597,15 +603,30 @@ def plan_capabilities(intent: IntentSchema, query: str) -> CapabilityPlan:
         legacy_route = "recommendation_rules" if intent.domain == "recommendation" else "llm_general"
         route_reason = "The intent should be answered through the hybrid generation path."
 
+    requires_generation = True
+    prefers_llm = True
+    deterministic_finance_domains = {"spending", "account", "portfolio", "performance", "market"}
+    if intent.domain in deterministic_finance_domains:
+        requires_generation = False
+        prefers_llm = False
+    elif (
+        intent.domain == "recommendation"
+        and not intent.needs_rag
+        and not intent.needs_market_data
+        and not has_spending_signal
+    ):
+        requires_generation = False
+        prefers_llm = False
+
     return CapabilityPlan(
         tool_calls=unique_tool_calls,
-        requires_generation=True,
+        requires_generation=requires_generation,
         requires_compliance_review=True,
         ui_route_label=ui_route_label,
         route_reason=route_reason,
         legacy_route=legacy_route,
         uses_rag="reference_retrieval" in unique_tool_calls,
-        prefers_llm=True,
+        prefers_llm=prefers_llm,
     )
 
 

@@ -1,9 +1,44 @@
 from __future__ import annotations
 
 import json
+import re
 
-from conversation_memory import format_chat_history_as_text
+from conversation_memory import detect_requested_output_language, format_chat_history_as_text
 from query_understanding import extract_spending_category_match, is_semantic_spending_query, normalize_query_text
+
+
+_CJK_CHAR_PATTERN = re.compile(r"[\u4e00-\u9fff]")
+_LATIN_CHAR_PATTERN = re.compile(r"[A-Za-z]")
+
+
+def detect_query_language(query: str) -> str:
+    cjk_chars = len(_CJK_CHAR_PATTERN.findall(query or ""))
+    latin_chars = len(_LATIN_CHAR_PATTERN.findall(query or ""))
+    if cjk_chars >= 2 and cjk_chars * 2 >= max(latin_chars, 1):
+        return "simplified_chinese"
+    if latin_chars > 0:
+        return "english"
+    return "english"
+
+
+def build_language_instruction(query: str) -> str:
+    explicit_language = detect_requested_output_language(query)
+    if explicit_language == "bilingual":
+        return (
+            "Prioritize the language request in the current user question over earlier conversation turns. "
+            "Answer in both Simplified Chinese and English. Start with Chinese, then give the English version. "
+            "Keep account names such as FHSA, TFSA, and RRSP in English when helpful."
+        )
+    if explicit_language == "simplified_chinese" or detect_query_language(query) == "simplified_chinese":
+        return (
+            "Prioritize the language of the current user question over earlier conversation turns. "
+            "Answer in Simplified Chinese. Keep account names such as FHSA, TFSA, and RRSP in English when helpful. "
+            "Do not switch into English paragraphs or bilingual output unless the user explicitly asks for both languages."
+        )
+    return (
+        "Prioritize the language of the current user question over earlier conversation turns. "
+        "Answer in English. Do not switch into Chinese or bilingual output unless the user explicitly asks for both languages."
+    )
 
 
 def _is_profile_relevant_query(query: str) -> bool:
@@ -312,9 +347,10 @@ def build_general_llm_request(
         market_snapshot=market_snapshot,
         extra_sections=extra_sections,
     )
+    effective_instructions = f"{instructions} {build_language_instruction(query)}"
     return {
         "model": model,
-        "instructions": instructions,
+        "instructions": effective_instructions,
         "input": render_prompt_context(sections),
         "context_sections": sections,
     }
@@ -365,6 +401,7 @@ def build_rag_llm_request(
             " For rule or eligibility questions, stay especially close to the retrieved source wording. "
             "Use careful language such as 'generally', 'official CRA rules', and 'verify the latest CRA wording' where appropriate."
         )
+    instructions += f" {build_language_instruction(query)}"
 
     return {
         "model": model,

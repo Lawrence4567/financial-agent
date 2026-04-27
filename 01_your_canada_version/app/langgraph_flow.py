@@ -21,6 +21,7 @@ class AnalysisGraphState(TypedDict, total=False):
     chat_history: list[dict]
     request_metadata: dict
     access_decision: dict
+    conversation_resolution: dict
     intent: IntentSchema
     capability_plan: CapabilityPlan
     orchestrated_context: OrchestratedContext
@@ -45,6 +46,7 @@ def run_langgraph_analysis_flow(
     chat_history: list[dict] | None,
     request_metadata: dict,
     access_decision: dict,
+    conversation_resolution: dict | None = None,
     parse_intent_fn: Callable[[str, bool, list[dict] | None], IntentSchema],
     plan_capabilities_fn: Callable[[IntentSchema, str], CapabilityPlan],
     run_tools_fn: Callable[[str, dict, IntentSchema, CapabilityPlan, OrchestratedContext], dict],
@@ -107,6 +109,7 @@ def run_langgraph_analysis_flow(
             request_metadata=state.get("request_metadata"),
             access_decision=state.get("access_decision"),
             tool_outputs=state.get("tool_outputs"),
+            conversation_resolution=state.get("conversation_resolution"),
         )
         return {
             "answer_payload": answer_payload,
@@ -143,5 +146,6 @@ def run_langgraph_analysis_flow(
             "chat_history": chat_history or [],
             "request_metadata": request_metadata,
             "access_decision": access_decision,
+            "conversation_resolution": conversation_resolution or {},
         }
     )
