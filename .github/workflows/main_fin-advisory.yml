@@ -28,7 +28,7 @@ jobs:
           source venv/bin/activate
       
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r 01_your_canada_version/requirements-local.txt
         
       # Optional: Add step to run tests here (PyTest, Django test suites, etc.)
 
@@ -75,4 +75,3 @@ jobs:
         with:
           app-name: 'fin-advisory'
           slot-name: 'Production'
-          
