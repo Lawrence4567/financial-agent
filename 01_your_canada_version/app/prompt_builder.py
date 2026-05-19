@@ -29,15 +29,15 @@ def build_language_instruction(query: str) -> str:
             "Answer in both Simplified Chinese and English. Start with Chinese, then give the English version. "
             "Keep account names such as FHSA, TFSA, and RRSP in English when helpful."
         )
-    if explicit_language == "simplified_chinese" or detect_query_language(query) == "simplified_chinese":
+    if explicit_language == "simplified_chinese":
         return (
-            "Prioritize the language of the current user question over earlier conversation turns. "
+            "The user explicitly requested Chinese in the current question. "
             "Answer in Simplified Chinese. Keep account names such as FHSA, TFSA, and RRSP in English when helpful. "
             "Do not switch into English paragraphs or bilingual output unless the user explicitly asks for both languages."
         )
     return (
-        "Prioritize the language of the current user question over earlier conversation turns. "
-        "Answer in English. Do not switch into Chinese or bilingual output unless the user explicitly asks for both languages."
+        "The user may ask in English, Chinese, or mixed language. Understand the meaning across languages, "
+        "but answer in English by default. Do not switch into Chinese or bilingual output unless the user explicitly asks for it."
     )
 
 
@@ -137,10 +137,10 @@ def _is_portfolio_relevant_query(query: str) -> bool:
 
 def _build_spending_context(summary: dict) -> dict:
     return {
-        "sample_window": "January 2025 to June 2025",
-        "six_month_total_outflows": summary["total_debits"],
-        "six_month_total_inflows": summary["total_credits"],
-        "six_month_net_cash_flow": summary["net_cash_flow"],
+        "sample_window": summary.get("sample_window", "the loaded sample window"),
+        "loaded_sample_total_outflows": summary["total_debits"],
+        "loaded_sample_total_inflows": summary["total_credits"],
+        "loaded_sample_net_cash_flow": summary["net_cash_flow"],
         "average_monthly_cash_outflow": summary["average_monthly_spending"],
         "top_spending_categories": summary["top_spending_categories"],
         "all_category_spending_totals": summary.get("category_spending_totals", {}),

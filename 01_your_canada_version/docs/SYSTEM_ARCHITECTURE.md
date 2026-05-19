@@ -13,7 +13,7 @@ This file focuses on:
 - module responsibilities
 - data architecture
 - runtime workflow
-- intent parsing and capability planning
+- intent and tool planning
 - retrieval architecture
 - deterministic tools and evidence objects
 - LangChain and LangGraph roles
@@ -27,7 +27,7 @@ This file focuses on:
 - sample Canadian client-case finance data
 - deterministic spending, account, portfolio, and recommendation logic
 - local retrieval over reference JSON files
-- LLM-based intent parsing with rules fallback
+- LLM-first intent and tool planning with rules fallback
 - LLM-based answer synthesis from grounded evidence
 - optional Yahoo Finance ETF snapshot
 - LangGraph-based constrained workflow
@@ -70,7 +70,7 @@ That means:
 The application is a modular monolith with six logical layers:
 
 - `UI layer`: Streamlit app and chat rendering
-- `workflow layer`: request validation, intent parsing, capability planning, orchestration
+- `workflow layer`: request validation, conversation resolution, intent/tool planning, orchestration
 - `deterministic tool layer`: spending, account, portfolio, performance, and recommendation tools
 - `knowledge layer`: local finance reference files and retrieval backend abstraction
 - `generation layer`: prompt assembly and LLM synthesis
@@ -86,7 +86,7 @@ This is not a microservice architecture. For a beginner-friendly project, a modu
 |---|---|---|
 | UI | `app/app_local.py` | Streamlit pages, chat, dashboard, developer mode, and debug rendering |
 | Main Analysis Entry | `app/local_financial_qa.py` | Main controller for request execution, tool runs, generation, compliance, and fallbacks |
-| Intent Engine | `app/intent_engine.py` | Build `IntentSchema`, apply rules fallback, and create `CapabilityPlan` |
+| Intent Engine | `app/intent_engine.py` | Run LLM-first intent/tool planning, apply rules fallback, and create `CapabilityPlan` |
 | Rules Fallback Router | `app/query_router.py` | Legacy route detection, safety checks, and route compatibility fallback |
 | Context Orchestrator | `app/response_orchestrator.py` | Gather retrieval and market context only when the capability plan needs them |
 | Retrieval Backend | `app/retrieval_backend.py` | Uniform retrieval interface with local-index backend and vector-store placeholder |
@@ -96,21 +96,22 @@ This is not a microservice architecture. For a beginner-friendly project, a modu
 | RAG Pipeline | `app/rag_pipeline.py` | Build local chunks, embeddings, JSON index, and retrieval primitives |
 | Prompt Builder | `app/prompt_builder.py` | Build structured context for grounded generation |
 | LangChain Adapter | `app/langchain_adapter.py` | Optional `langchain-core` prompt pipeline |
-| LangGraph Flow | `app/langgraph_flow.py` | Build the constrained workflow from intent parsing to compliance |
+| LangGraph Flow | `app/langgraph_flow.py` | Build the constrained workflow from intent/tool planning to compliance |
 | Data Source Layer | `app/data_sources.py` | Load CSV/JSON data, environment variables, and market snapshot inputs |
 
 ### 5.2 Logical Responsibilities
 
 1. `app_local.py` handles interaction and developer mode rendering.
 2. `analyze_financial_data_local()` is the main runtime controller.
-3. `parse_intent()` creates a structured `IntentSchema`.
-4. `plan_capabilities()` decides which tools and retrieval steps are needed.
+3. `parse_intent()` acts as the LLM-first intent/tool planner and creates a structured `IntentSchema`.
+4. `plan_capabilities()` converts that intent into concrete tool calls and retrieval steps.
 5. `gather_orchestrated_context()` loads only the required retrieval and market context.
 6. `run_analysis_tools_for_plan()` computes deterministic evidence.
-7. `validate_tool_results()` checks that the tool outputs are consistent and usable.
-8. `answer_with_capability_generation()` generates the final answer from evidence when generation is allowed.
-9. `apply_compliance_to_payload()` softens risky wording and attaches guardrail metadata.
-10. `append_audit_event()` writes a JSONL audit trail.
+7. `validate_tool_results()` checks that planned tools returned usable outputs.
+8. `validate_evidence_payload()` checks that the evidence is ready for answer generation.
+9. `answer_with_capability_generation()` generates the final answer from evidence when generation is allowed.
+10. `apply_compliance_to_payload()` softens risky wording and attaches guardrail metadata.
+11. `append_audit_event()` writes a JSONL audit trail.
 
 ## 6. Data Architecture
 
@@ -167,17 +168,18 @@ The main runtime starts from:
 5. Build a compact summary object for downstream logic.
 6. Re-check safety and allowed scope against the loaded profile.
 7. Choose the workflow engine: `LangGraph` when enabled, otherwise Python fallback orchestration.
-8. Parse structured intent.
-9. Build a capability plan from that intent.
-10. Gather only the required market and retrieval context.
-11. Run deterministic tools to produce evidence objects.
-12. Validate tool outputs and prepare an evidence summary.
-13. Generate the answer from evidence, unless access or safety short-circuits the request.
-14. Run a compliance review on the outgoing answer payload.
-15. Write an audit event.
-16. Return the structured result to Streamlit for rendering.
+8. Resolve short follow-up questions with recent conversation memory.
+9. Use LLM-first intent/tool planning, with rules fallback when the LLM is unavailable or disabled.
+10. Build a capability plan from that intent.
+11. Gather only the required market and retrieval context.
+12. Run deterministic tools to produce evidence objects.
+13. Validate tool outputs, validate the full evidence payload, and prepare an evidence summary.
+14. Generate the answer from evidence, unless access or safety short-circuits the request.
+15. Run a compliance review on the outgoing answer payload.
+16. Write an audit event.
+17. Return the structured result to Streamlit for rendering.
 
-## 8. Intent Parsing and Capability Planning
+## 8. Intent and Tool Planning
 
 This is the biggest architectural change in the refactor.
 
@@ -187,7 +189,9 @@ The old flow was:
 
 The new flow is:
 
-`Intent Parsing -> Capability Planning -> Tools / Retrieval -> LLM Synthesis -> Compliance`
+`Conversation Memory -> LLM Intent & Tool Planning -> Rules Fallback -> Capability Plan -> Tools / Retrieval -> Evidence Validation -> LLM Synthesis -> Compliance`
+
+The important idea is that the LLM can decide the workflow, but it does not calculate the finance facts. The structured tools still compute balances, spending totals, rankings, and portfolio analytics.
 
 ### 8.1 IntentSchema
 
@@ -205,15 +209,18 @@ The new flow is:
 | `needs_portfolio_tools` | Whether portfolio/performance analytics are needed |
 | `response_style` | Desired answer style such as `brief`, `explanatory`, or `tabular` |
 | `confidence` | Intent confidence level |
-| `fallback_reason` | Why rules fallback was used instead of LLM intent parsing |
+| `fallback_reason` | Why rules fallback was used instead of LLM planning |
+| `planner_source` | Whether the plan came from `llm` or `rules` |
 
-### 8.2 How Intent Parsing Works
+### 8.2 How Intent and Tool Planning Works
 
 `parse_intent()` follows a hybrid strategy:
 
-1. Try LLM-based structured parsing when `INTENT_BACKEND=llm` and OpenAI is available.
-2. If that fails, falls back to the existing rules-based router and query understanding logic.
-3. Apply discoverable overrides for cases that the LLM or router may still miss.
+1. Resolve short follow-up questions with `conversation_memory.py`.
+2. Try LLM-based structured planning when `INTENT_BACKEND=llm` and OpenAI is available.
+3. If the LLM is disabled, unavailable, or fails, fall back to the existing rules-based router and query understanding logic.
+4. Apply discoverable overrides for cases that the LLM or router may still miss.
+5. Return a structured `IntentSchema` with `planner_source` and `fallback_reason` metadata.
 
 Important intent cases now handled explicitly:
 
@@ -222,10 +229,11 @@ Important intent cases now handled explicitly:
 - account comparison such as `FHSA vs TFSA`
 - mixed questions that need spending + recommendation + rules
 - follow-up references using recent chat history
+- RAG-needed vs non-RAG questions
 
 ### 8.3 CapabilityPlan
 
-`CapabilityPlan` is the workflow contract after intent parsing.
+`CapabilityPlan` is the workflow contract after intent/tool planning.
 
 | Field | Meaning |
 |---|---|
@@ -252,6 +260,19 @@ The current planner can request these tool calls:
 - `architecture_context`
 
 `ui_route_label` is still returned for developer mode and UI compatibility, but it is no longer the main decision source.
+
+### 8.5 Smarter RAG Routing
+
+The planner does not send every question to RAG.
+
+Examples:
+
+- `Show my household account summary.` uses account data only.
+- `How much did I spend on food?` uses transaction data only.
+- `FHSA vs TFSA` uses RAG because it needs registered-account rule knowledge.
+- `Based on my profile, should I focus on FHSA, TFSA, or RRSP?` uses recommendation tools plus RAG.
+
+This keeps the system faster, easier to explain, and less likely to mix retrieved reference text into simple numeric answers.
 
 ## 9. Deterministic Tool Layer
 
@@ -289,6 +310,27 @@ This keeps the system grounded and auditable.
 - market snapshot evidence
 
 The validation step checks that the tool outputs are present, consistent, and safe to narrate.
+
+### 9.3 Evidence Validation
+
+After tool execution, the app now builds an evidence validation object before generation.
+
+`validate_evidence_payload()` checks:
+
+- planned tools actually returned outputs
+- a deterministic answer draft exists
+- RAG returned reference chunks when RAG was planned
+- market data exists when a market snapshot was planned
+- the evidence is ready for LLM generation
+
+The output includes:
+
+- `status`: `ok`, `warning`, or `blocked`
+- `ready_for_generation`: whether the generation layer should run
+- `issues`: missing or weak evidence signals
+- `checked_items`: which evidence areas were checked
+
+If evidence is blocked, the app avoids unsafe generation and uses the deterministic fallback path.
 
 ## 10. Retrieval Architecture
 
@@ -359,6 +401,7 @@ Depending on the plan, prompts may include:
 - market context
 - retrieved reference context
 - tool evidence
+- evidence validation
 - evidence summary
 
 ### 11.1 Unified Generation Exit
@@ -402,7 +445,7 @@ It is not the main reasoning engine. The main reasoning pattern now comes from `
 
 The graph nodes are:
 
-1. `parse_intent`
+1. `intent_tool_planning`
 2. `plan_capabilities`
 3. `gather_context`
 4. `run_tools`
@@ -456,11 +499,11 @@ Used when:
 
 - OpenAI is unavailable
 - LLM generation fails
-- intent parsing falls back to rules mode
+- intent/tool planning falls back to rules mode
 
 Flow:
 
-`User -> Intent parser fallback -> Capability plan -> Tool evidence -> Deterministic fallback draft -> UI`
+`User -> Intent/tool planner fallback -> Capability plan -> Tool evidence -> Evidence validation -> Deterministic fallback draft -> UI`
 
 ### Path C: Knowledge or Hybrid Answer
 
@@ -471,7 +514,7 @@ Used when:
 
 Flow:
 
-`User -> Intent parsing -> Capability plan -> Retrieval + tools -> LLM synthesis -> Compliance -> UI`
+`User -> Intent/tool planning -> Capability plan -> Retrieval + tools -> Evidence validation -> LLM synthesis -> Compliance -> UI`
 
 ### Path D: Portfolio / Performance Explanation
 
@@ -481,7 +524,7 @@ Used when:
 
 Flow:
 
-`User -> Access check -> Intent parsing -> Market + retrieval context -> Analytics tools -> Evidence validation -> Grounded generation -> Compliance -> Audit -> UI`
+`User -> Access check -> Intent/tool planning -> Market + retrieval context -> Analytics tools -> Evidence validation -> Grounded generation -> Compliance -> Audit -> UI`
 
 ## 14. Developer Mode and Observability
 
@@ -494,6 +537,7 @@ The assistant message can show:
 - `generation_source`
 - `fallback_reason`
 - `evidence_summary`
+- `evidence_validation`
 
 This is helpful because the user can now see:
 
@@ -513,8 +557,9 @@ The app is designed to degrade gracefully.
 - if access is denied, return immediately with an access-gate payload
 - if safety validation fails, return immediately with a safety payload
 - if `WORKFLOW_BACKEND` is not `langgraph` or the graph fails, use Python orchestration fallback
-- if `INTENT_BACKEND=rules_fallback`, skip LLM intent parsing
-- if LLM intent parsing fails, fall back to rules parsing and store `fallback_reason`
+- if `INTENT_BACKEND=rules_fallback`, skip LLM intent/tool planning
+- if LLM intent/tool planning fails, fall back to rules planning and store `fallback_reason`
+- if evidence validation blocks generation, return the deterministic draft instead of asking the LLM to guess
 - if LLM generation fails, return the deterministic draft while preserving evidence metadata
 - if the retrieval backend is unavailable, fall back to the local index backend
 - if embeddings are unavailable, use lexical retrieval
@@ -554,7 +599,7 @@ These limits are acceptable for a learning project, but they matter in productio
 
 ### Current Gaps
 
-- intent parsing is still single-shot rather than evaluator-driven
+- intent/tool planning is still single-shot rather than evaluator-driven
 - vector-store retrieval is only a placeholder adapter today
 - no persistent long-term conversation memory
 - no production backend separation
@@ -576,7 +621,7 @@ This app is a modular monolith that combines:
 - local finance datasets
 - deterministic finance and recommendation tools
 - local JSON-based retrieval
-- typed intent parsing and capability planning
+- typed intent/tool planning and capability planning
 - optional OpenAI generation
 - optional LangChain prompt composition
 - optional LangGraph workflow orchestration

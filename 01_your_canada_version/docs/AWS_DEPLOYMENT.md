@@ -59,7 +59,7 @@ Recommended values:
 
 Notes:
 
-- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs with deterministic fallback answers, but LLM intent parsing and LLM synthesis are disabled.
+- `OPENAI_API_KEY` is optional. If you leave it empty, the app still runs with deterministic fallback answers, but LLM intent/tool planning and LLM synthesis are disabled.
 - `RETRIEVAL_BACKEND=local_index` is the default and does not require any external vector database.
 - `FINANCE_DATA_DIR` is optional in many cases because the code already has a default path.
 

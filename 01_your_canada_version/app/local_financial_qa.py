@@ -71,7 +71,7 @@ LLM_INSTRUCTIONS = (
 )
 
 MAX_VISIBLE_RECOMMENDATIONS = 3
-SAVINGS_CONTRIBUTION_CATEGORIES = {"FHSA Contribution", "TFSA Contribution", "RRSP Contribution"}
+SAVINGS_CONTRIBUTION_CATEGORIES = {"FHSA Contribution", "TFSA Contribution", "RRSP Contribution", "Savings Contribution"}
 REPAYMENT_CATEGORIES = {"Credit Card Payment"}
 
 
@@ -106,10 +106,27 @@ def format_month_name(year: int | float, month: int | float) -> str:
     return f"{month_name[int(month)]} {int(year)}"
 
 
+def format_month_window(rows: list[dict]) -> str:
+    if not rows:
+        return "the loaded sample window"
+    first = rows[0]
+    last = rows[-1]
+    return f"{format_month_name(first['year'], first['month'])} to {format_month_name(last['year'], last['month'])}"
+
+
 def split_spending_buckets(summary: dict) -> dict:
+    return split_spending_buckets_from_totals(
+        {
+            category: float(amount)
+            for category, amount in (summary.get("category_spending_totals", {}) or {}).items()
+        }
+    )
+
+
+def split_spending_buckets_from_totals(category_totals: dict[str, float]) -> dict:
     category_totals = {
         category: float(amount)
-        for category, amount in (summary.get("category_spending_totals", {}) or {}).items()
+        for category, amount in (category_totals or {}).items()
     }
     living_expenses: dict[str, float] = {}
     savings_contributions: dict[str, float] = {}
@@ -146,6 +163,7 @@ def build_spending_story(summary: dict) -> dict:
     living_expenses = buckets["living_expenses"]
     top_living_expenses = buckets["top_living_expenses"]
     monthly_spending = summary.get("monthly_spending", []) or []
+    sample_window = summary.get("sample_window", "the loaded sample window")
     living_total = buckets["living_total"]
     contribution_total = buckets["contribution_total"]
     repayment_total = buckets["repayment_total"]
@@ -164,7 +182,7 @@ def build_spending_story(summary: dict) -> dict:
 
     if living_total > 0 and rent_amount / living_total >= 0.45:
         living_focus = (
-            f"Rent is the main pressure point by a wide margin at {format_money(rent_amount)} over the six-month sample."
+            f"Rent is the main pressure point by a wide margin at {format_money(rent_amount)} over {sample_window}."
         )
     elif top_living_expenses:
         top_category, top_amount = next(iter(top_living_expenses.items()))
@@ -424,16 +442,20 @@ def build_summary(context: FinancialContext) -> dict:
         context.market_commentary,
     )
 
+    monthly_spending_records = monthly_spending.to_dict(orient="records")
+    sample_window = format_month_window(monthly_spending_records)
+
     summary = {
         "total_debits": round(float(spending["amount"].sum()), 2),
         "total_credits": round(float(credits["amount"].sum()), 2),
         "net_cash_flow": round(float(credits["amount"].sum() - spending["amount"].sum()), 2),
         "transaction_count": int(len(context.transactions)),
         "average_monthly_spending": round(float(monthly_spending["amount"].mean()), 2) if not monthly_spending.empty else 0.0,
+        "sample_window": sample_window,
         "top_spending_categories": top_spending.to_dict(),
         "category_spending_totals": category_spending_totals.to_dict(),
         "category_monthly_spending": category_monthly_spending.round({"amount": 2}).to_dict(orient="records"),
-        "monthly_spending": monthly_spending.to_dict(orient="records"),
+        "monthly_spending": monthly_spending_records,
         "user_profile": {
             "user_id": user_record.get("userid"),
             "name": user_record.get("name"),
@@ -519,9 +541,10 @@ def build_spending_analysis(summary: dict) -> dict:
     buckets = story["buckets"]
     living_expense_categories = buckets["top_living_expenses"]
     savings_transfer_categories = buckets["savings_contributions"]
+    sample_window = summary.get("sample_window", "the loaded sample window")
 
     insights = [
-        f"This answer is based on a six-month sample from January 2025 to June 2025, not a full calendar year.",
+        f"This answer is based on the loaded transaction sample from {sample_window}.",
         f"Average monthly cash outflow in the sample is {format_money(summary['average_monthly_spending'])}.",
         f"Largest living-expense category in the sample is {next(iter(living_expense_categories.keys()), 'not available')}.",
     ]
@@ -546,8 +569,27 @@ def build_spending_analysis(summary: dict) -> dict:
 
 def extract_spending_time_scope(query: str) -> dict | None:
     query_text = " ".join(str(query or "").lower().split())
+    if any(
+        phrase in query_text
+        for phrase in [
+            "this month",
+            "current month",
+            "latest month",
+            "recent month",
+            "本月",
+            "这个月",
+            "這個月",
+            "当月",
+            "當月",
+        ]
+    ):
+        return {
+            "mode": "latest_available",
+            "month_count": 1,
+        }
     patterns = [
         r"\b(?:in|last|past|recent|latest)\s+(\d{1,2})\s*months?\b",
+        r"\b(?:in|last|past|recent|latest)\s+(\d{1,2})\s*month\b",
         r"\b(\d{1,2})\s*months?\b",
         r"最近\s*(\d{1,2})\s*个?月",
         r"过去\s*(\d{1,2})\s*个?月",
@@ -615,6 +657,8 @@ def format_spending_window_label(months: list[tuple[int, int]], requested_count:
     end_year, end_month = months[-1]
     date_range = f"{format_month_name(start_year, start_month)} to {format_month_name(end_year, end_month)}"
     if requested_count is not None:
+        if requested_count == 1:
+            return f"the latest available month in the loaded data ({date_range})"
         return f"the latest {requested_count} months in the loaded data ({date_range})"
     month_count = len(months)
     return f"the {month_count}-month client record ({date_range})"
@@ -657,7 +701,7 @@ def format_category_spending_answer(summary: dict, category_match: dict, time_sc
         )
 
     breakdown_lines = "\n".join(
-        f"- {category}: {amount:,.2f}"
+        f"- {category}: {format_money(amount)}"
         for category, amount in breakdown
     )
     mapping_note = ""
@@ -667,7 +711,7 @@ def format_category_spending_answer(summary: dict, category_match: dict, time_sc
         )
 
     return (
-        f"From {resolved_scope['label']}, total spending on `{label}` was `{total_amount:,.2f}`.\n\n"
+        f"From {resolved_scope['label']}, total spending on `{label}` was `{format_money(total_amount)}`.\n\n"
         "Breakdown:\n"
         f"{breakdown_lines}"
         f"{mapping_note}\n\n"
@@ -725,12 +769,12 @@ def format_non_category_spending_answer(summary: dict, category_match: dict, tim
         )
 
     top_lines = "\n".join(
-        f"- {category}: {amount:,.2f}"
+        f"- {category}: {format_money(amount)}"
         for category, amount in kept_breakdown[:6]
     )
     excluded_lines = ", ".join(sorted(excluded_categories))
     return (
-        f"If you mean spending outside `{label}`, {resolved_scope['label']} shows `{total_amount:,.2f}` spent on all other categories.\n\n"
+        f"If you mean spending outside `{label}`, {resolved_scope['label']} shows `{format_money(total_amount)}` spent on all other categories.\n\n"
         f"- Excluded categories: {excluded_lines}\n"
         "Largest remaining categories:\n"
         f"{top_lines}\n\n"
@@ -1177,7 +1221,7 @@ def format_negative_recommendation_answer(query: str, summary: dict) -> str:
     )
     return (
         "I would frame this as `what should not be prioritised right now`, not `what is always bad`.\n\n"
-        f"The product I would be least likely to recommend as a first step is `{lead['product_name']}` because {lead_reason}\n\n"
+        f"If you use the word avoid, I would avoid making `{lead['product_name']}` the first recommendation right now because {lead_reason}\n\n"
         "Lower-priority options for the current profile are:\n"
         f"{bullets}\n\n"
         "That does not mean these products are wrong forever. It means they are less suitable than your current top priorities."
@@ -1223,6 +1267,57 @@ def format_account_priority_answer(summary: dict) -> str:
 
 def format_spending_summary_answer(summary: dict, query: str | None = None) -> str:
     query_lower = " ".join(str(query or "").lower().split())
+    asks_living_only = any(
+        phrase in query_lower
+        for phrase in [
+            "on living",
+            "living expense",
+            "living expenses",
+            "living spend",
+            "lifestyle spend",
+            "day-to-day spending",
+            "day to day spending",
+            "生活支出",
+            "生活消费",
+            "日常支出",
+        ]
+    )
+    time_scope = extract_spending_time_scope(query or "")
+    if time_scope:
+        resolved_scope = resolve_spending_time_scope(summary, time_scope)
+        scoped_category_totals = category_totals_for_time_scope(summary, resolved_scope)
+        scoped_buckets = split_spending_buckets_from_totals(scoped_category_totals)
+        total_outflow = round(sum(float(amount) for amount in scoped_category_totals.values()), 2)
+        living_total = scoped_buckets["living_total"]
+        contribution_total = scoped_buckets["contribution_total"]
+        repayment_total = scoped_buckets["repayment_total"]
+        top_lines = ", ".join(
+            f"{category} {format_money(amount)}"
+            for category, amount in list(
+                (scoped_buckets["living_expenses"] if asks_living_only else scoped_category_totals).items()
+            )[:5]
+        ) or "no spending categories were available"
+        latest_note = "latest available month" if time_scope.get("month_count") == 1 else f"latest {time_scope.get('month_count')} months"
+        if asks_living_only:
+            return (
+                f"For the {latest_note} in the loaded data, your living expenses were `{format_money(living_total)}`.\n\n"
+                f"- Time window: {resolved_scope['label']}\n"
+                f"- Total cash outflows: {format_money(total_outflow)}\n"
+                f"- Savings contributions tracked separately: {format_money(contribution_total)}\n"
+                f"- Credit-card repayments tracked separately: {format_money(repayment_total)}\n"
+                f"- Largest living categories: {top_lines}\n\n"
+                "I am using the latest available month in the demo dataset, not today's calendar month."
+            )
+        return (
+            f"For the {latest_note} in the loaded data, you spent `{format_money(total_outflow)}` in total cash outflows.\n\n"
+            f"- Time window: {resolved_scope['label']}\n"
+            f"- Living expenses: {format_money(living_total)}\n"
+            f"- Savings contributions tracked separately: {format_money(contribution_total)}\n"
+            f"- Credit-card repayments tracked separately: {format_money(repayment_total)}\n"
+            f"- Largest categories: {top_lines}\n\n"
+            "I am using the latest available month in the demo dataset, not today's calendar month."
+        )
+
     story = build_spending_story(summary)
     buckets = story["buckets"]
     living_lines = ", ".join(
@@ -1258,7 +1353,7 @@ def format_spending_summary_answer(summary: dict, query: str | None = None) -> s
     standout_block = "\n".join(f"- {line}" for line in standout_lines if line)
 
     support_lines = [
-        f"- Time window: January 2025 to June 2025",
+        f"- Time window: {summary.get('sample_window', 'the loaded sample window')}",
         f"- Net cash flow: {format_money(summary['net_cash_flow'])}",
         f"- Average monthly cash outflow: {format_money(summary['average_monthly_spending'])}",
         f"- Largest living-expense categories: {living_lines}",
@@ -2619,6 +2714,51 @@ def validate_tool_results(tool_outputs: dict, capability_plan: CapabilityPlan) -
     return validated
 
 
+def validate_evidence_payload(evidence_payload: dict) -> dict:
+    capability_plan = evidence_payload.get("capability_plan", {}) or {}
+    tool_outputs = evidence_payload.get("tool_outputs", {}) or {}
+    planned_tools = capability_plan.get("tool_calls", []) or []
+    missing_tools = tool_outputs.get("missing_tools", []) or [
+        tool_name for tool_name in planned_tools if tool_name not in tool_outputs
+    ]
+    issues: list[str] = []
+
+    for tool_name in missing_tools:
+        issues.append(f"Planned tool `{tool_name}` did not return an output.")
+
+    if "reference_retrieval" in planned_tools:
+        retrieval_result = evidence_payload.get("retrieval_result") or {}
+        if not retrieval_result.get("chunks"):
+            issues.append("RAG was planned, but no reference chunks were retrieved.")
+
+    if "market_snapshot" in planned_tools:
+        market_snapshot = evidence_payload.get("market_snapshot") or {}
+        if not market_snapshot or market_snapshot.get("status") == "unavailable":
+            issues.append("Market snapshot was planned, but live/cached market data was unavailable.")
+
+    default_answer = " ".join(str(evidence_payload.get("default_answer_draft") or "").split())
+    if not default_answer:
+        issues.append("No deterministic answer draft was available before generation.")
+
+    blocking_issues = [
+        issue
+        for issue in issues
+        if "did not return an output" in issue or "No deterministic answer draft" in issue
+    ]
+    return {
+        "status": "blocked" if blocking_issues else "warning" if issues else "ok",
+        "ready_for_generation": not blocking_issues,
+        "issues": issues,
+        "checked_items": [
+            "planned_tools",
+            "tool_outputs",
+            "deterministic_answer_draft",
+            "retrieved_context",
+            "market_context",
+        ],
+    }
+
+
 def summarize_evidence_for_prompt(evidence_payload: dict) -> str:
     intent = evidence_payload.get("intent", {})
     capability_plan = evidence_payload.get("capability_plan", {})
@@ -2803,6 +2943,8 @@ def build_evidence_payload(
     elif "recommendation_engine" in tool_outputs and "spending_tool" in tool_outputs:
         default_answer = format_hybrid_spending_recommendation_answer(summary, query=query)
         recommendation_cards = tool_outputs["recommendation_engine"].get("recommendation_cards")
+    elif "market_snapshot" in tool_outputs and intent.domain == "market":
+        default_answer = tool_outputs["market_snapshot"].get("default_answer_draft")
     elif "spending_tool" in tool_outputs:
         default_answer = tool_outputs["spending_tool"].get("default_answer_draft")
     elif "account_summary_tool" in tool_outputs:
@@ -2895,6 +3037,7 @@ def answer_with_capability_generation(
         "intent_schema": evidence_payload["intent"],
         "capability_plan": evidence_payload["capability_plan"],
         "tool_evidence": evidence_payload["tool_outputs"],
+        "evidence_validation": evidence_payload.get("evidence_validation", {}),
         "evidence_summary": evidence_payload["evidence_summary"],
         "deterministic_answer_draft": evidence_payload["default_answer_draft"],
         "request_metadata": request_metadata or {},
@@ -2975,8 +3118,9 @@ def execute_capability_plan(
         tool_outputs=tool_outputs,
         conversation_resolution=conversation_resolution,
     )
+    evidence_payload["evidence_validation"] = validate_evidence_payload(evidence_payload)
 
-    if capability_plan.requires_generation and use_llm:
+    if capability_plan.requires_generation and use_llm and evidence_payload["evidence_validation"]["ready_for_generation"]:
         answer_payload = answer_with_capability_generation(
             query=query,
             summary=summary,
@@ -3047,6 +3191,7 @@ def execute_capability_plan(
     answer_payload["intent"] = evidence_payload["intent"]
     answer_payload["capability_plan"] = evidence_payload["capability_plan"]
     answer_payload["evidence_summary"] = evidence_payload["evidence_summary"]
+    answer_payload["evidence_validation"] = evidence_payload["evidence_validation"]
     answer_payload["why_explanation"] = build_user_facing_explanation(
         query=query,
         summary=summary,
@@ -3370,11 +3515,13 @@ def analyze_financial_data_local(
     chat_history: list[dict] | None = None,
     request_metadata: dict | None = None,
 ) -> dict:
-    if not use_llm:
-        raise RuntimeError("OpenAI is mandatory for this app. The backend received use_llm=False and stopped the request.")
-    require_openai_runtime()
-
     started_at = time.perf_counter()
+    runtime_warning = None
+    if use_llm and not openai_runtime_available():
+        use_llm = False
+        runtime_warning = (
+            "OpenAI runtime was not available, so the app used deterministic tools and rules-based generation."
+        )
     normalized_history = normalize_chat_history(chat_history)
     conversation_resolution = resolve_follow_up_query(query, normalized_history)
     effective_query = conversation_resolution.get("effective_query", query) or query
@@ -3566,7 +3713,7 @@ def analyze_financial_data_local(
         "workflow_backend": workflow_backend,
         "model": answer_payload.get("model"),
         "request_preview": answer_payload.get("request_preview"),
-        "warning": combine_warnings(graph_warning, answer_payload.get("warning")),
+        "warning": combine_warnings(runtime_warning, combine_warnings(graph_warning, answer_payload.get("warning"))),
         "error": answer_payload.get("error"),
         "recommendation_cards": answer_payload.get("recommendation_cards"),
         "market_snapshot": answer_payload.get("market_snapshot"),
@@ -3580,6 +3727,7 @@ def analyze_financial_data_local(
         "generation_source": answer_payload.get("generation_source"),
         "fallback_reason": answer_payload.get("fallback_reason"),
         "evidence_summary": answer_payload.get("evidence_summary"),
+        "evidence_validation": answer_payload.get("evidence_validation"),
         "answer_citations": answer_payload.get("answer_citations", []),
         "why_explanation": answer_payload.get("why_explanation", []),
         "summary": summary,

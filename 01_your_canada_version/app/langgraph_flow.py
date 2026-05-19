@@ -59,7 +59,7 @@ def run_langgraph_analysis_flow(
 
     workflow = StateGraph(AnalysisGraphState)
 
-    def parse_intent_node(state: AnalysisGraphState) -> AnalysisGraphState:
+    def intent_tool_planning_node(state: AnalysisGraphState) -> AnalysisGraphState:
         return {
             "intent": parse_intent_fn(
                 state["query"],
@@ -120,7 +120,7 @@ def run_langgraph_analysis_flow(
             "answer_payload": compliance_fn(state["answer_payload"], state["summary"]),
         }
 
-    workflow.add_node("parse_intent", parse_intent_node)
+    workflow.add_node("intent_tool_planning", intent_tool_planning_node)
     workflow.add_node("plan_capabilities", plan_capabilities_node)
     workflow.add_node("gather_context", context_node)
     workflow.add_node("run_tools", tool_node)
@@ -128,8 +128,8 @@ def run_langgraph_analysis_flow(
     workflow.add_node("generate_answer", execute_node)
     workflow.add_node("compliance_check", compliance_node)
 
-    workflow.set_entry_point("parse_intent")
-    workflow.add_edge("parse_intent", "plan_capabilities")
+    workflow.set_entry_point("intent_tool_planning")
+    workflow.add_edge("intent_tool_planning", "plan_capabilities")
     workflow.add_edge("plan_capabilities", "gather_context")
     workflow.add_edge("gather_context", "run_tools")
     workflow.add_edge("run_tools", "validate_tool_results")

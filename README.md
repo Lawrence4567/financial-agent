@@ -12,13 +12,13 @@ This is not only a simple chat demo. The app demonstrates a fuller advisory work
 
 - `request context`: create an internal request record for session, timestamp, and access checks
 - `identity and access control`: check access before AI reasoning
-- `intent parsing`: produce a structured `IntentSchema` with LLM-first parsing and rules fallback
-- `capability planning`: decide which tools, retrieval steps, and answer path are needed
+- `intent and tool planning`: use LLM-first planning with rules fallback to produce a structured `IntentSchema` and decide which tools, retrieval steps, and answer path are needed
 - `structured data retrieval`: use holdings, performance, accounts, and transactions
 - `retrieval abstraction`: use a local JSON index today, with a vector-store-ready interface for later
 - `RAG`: retrieve grounded context from local Canada finance reference files
 - `analytics tools`: compute deterministic evidence for spending, accounts, portfolio, and recommendations
-- `LLM synthesis`: optionally use OpenAI for grounded final answers and intent parsing
+- `evidence validation`: check planned tools, retrieved context, market data, and deterministic drafts before generation
+- `LLM synthesis`: optionally use OpenAI for grounded final answers and intent/tool planning
 - `compliance guardrails`: soften unsafe wording and apply basic redaction
 - `audit logging`: write each request to a JSONL audit trail
 
@@ -102,13 +102,14 @@ The most important variables are:
 
 This app uses a hybrid design:
 
-- `intent engine`: structured intent parsing plus capability planning
+- `intent engine`: structured intent and tool planning
 - `rules and tool layer`: deterministic recommendation scoring, finance summaries, and analytics evidence
+- `evidence validator`: checks whether the gathered evidence is ready for generation
 - `retrieval backend abstraction`: local index now, vector-store-ready interface later
 - `RAG`: retrieval over account, planning, official-rule, and market-commentary content
 - `LangChain`: optional prompt pipeline
 - `LangGraph`: constrained workflow orchestration
-- `OpenAI Responses API`: optional intent parsing and final language generation
+- `OpenAI Responses API`: optional intent/tool planning and final language generation
 - `Yahoo Finance via yfinance`: optional live ETF snapshot
 
 The core architecture idea is:
@@ -122,7 +123,7 @@ For diagrams, use [Architecture Diagrams](./01_your_canada_version/docs/ARCHITEC
 For a question like `Why did my portfolio go down this month?`, the app:
 
 1. validates identity and allowed scope
-2. parses structured intent
+2. resolves conversation context and plans intent/tools
 3. builds a capability plan
 4. loads the needed portfolio, market, and retrieval context
 5. runs deterministic analytics tools

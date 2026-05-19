@@ -33,8 +33,8 @@ class DemoFlowTests(unittest.TestCase):
             },
         )
         self.assertEqual(result["route_label"], "Performance explanation")
-        self.assertIn("2025-06", result["answer"])
-        self.assertIn("2025-04", result["answer"])
+        self.assertIn("2025-12", result["answer"])
+        self.assertIn("2025-10", result["answer"])
         self.assertIn("portfolio_performance_toolkit", result["tool_outputs"]["tools_used"])
         self.assertEqual(result["intent"]["domain"], "performance")
         self.assertEqual(result["capability_plan"]["ui_route_label"], "Performance explanation")

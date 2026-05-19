@@ -24,6 +24,10 @@ _KNOWN_TOPIC_TERMS = [
 _CJK_CHAR_PATTERN = re.compile(r"[\u4e00-\u9fff]")
 
 
+def _is_recommendation_route(route_label: str | None) -> bool:
+    return "recommendation" in (route_label or "").lower()
+
+
 def normalize_chat_history(chat_history: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     normalized: list[dict[str, Any]] = []
     for message in chat_history or []:
@@ -219,7 +223,7 @@ def resolve_follow_up_query(
             effective_query = f"{base_topic_text}\n\nPlease answer again in English."
         reason = "The current query looks like a language follow-up, so the previous user question was reused as the topic."
     elif style == "why":
-        if last_route == "Recommendation rules":
+        if _is_recommendation_route(last_route):
             focus = assistant_topics[0] if assistant_topics else (previous_topics[0] if previous_topics else "that recommendation")
             effective_query = f"Why is {focus} the best fit for me right now based on my profile and goals?"
         elif last_route == "Spending rules":
@@ -237,7 +241,7 @@ def resolve_follow_up_query(
         reason = "The current query looks like a why-follow-up, so the previous topic was expanded into a full question."
     elif style == "alternative":
         alternative = current_topics[0] if current_topics else None
-        if last_route == "Recommendation rules" and alternative:
+        if _is_recommendation_route(last_route) and alternative:
             effective_query = f"Based on my profile, what about {alternative} instead of the option you just recommended?"
         elif last_route == "Spending rules" and alternative:
             effective_query = f"How much did I spend on {alternative} instead?"

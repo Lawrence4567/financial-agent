@@ -31,7 +31,7 @@ st.markdown(
     .market-card {
         border: 1px solid #e5e7eb;
         border-top: 4px solid var(--accent);
-        border-radius: 18px;
+        border-radius: 8px;
         padding: 1.1rem 1.15rem 1rem 1.15rem;
         background: linear-gradient(180deg, #ffffff 0%, #fafafa 100%);
         min-height: 280px;
@@ -64,7 +64,7 @@ st.markdown(
     .market-chip {
         display: inline-block;
         padding: 0.35rem 0.65rem;
-        border-radius: 999px;
+        border-radius: 8px;
         font-size: 0.92rem;
         font-weight: 600;
         background: var(--bg);
@@ -77,7 +77,7 @@ st.markdown(
     }
     .kpi-card {
         border: 1px solid #e5e7eb;
-        border-radius: 16px;
+        border-radius: 8px;
         padding: 1rem 1rem 1.1rem 1rem;
         background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 100%);
         min-height: 220px;
@@ -85,6 +85,12 @@ st.markdown(
         flex-direction: column;
         justify-content: space-between;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.03);
+    }
+    .demo-note {
+        color: #6b7280;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        padding-top: 0.35rem;
     }
     .kpi-label {
         color: #8a8f98;
@@ -289,7 +295,7 @@ def render_intent_plan_details(message: dict) -> None:
     if not intent and not capability_plan:
         return
 
-    with st.expander("Intent and workflow plan"):
+    with st.expander("Intent & tool planning"):
         if intent:
             st.write("Intent schema:")
             st.json(intent)
@@ -431,6 +437,10 @@ def should_use_recommendation_brief(message: dict) -> bool:
 
 def build_recommendation_chat_brief(message: dict) -> str | None:
     if not is_recommendation_chat_message(message):
+        return None
+
+    conversation_resolution = message.get("conversation_resolution") or {}
+    if conversation_resolution.get("style") in {"why", "alternative", "simplify", "language"}:
         return None
 
     tool_outputs = message.get("tool_outputs") or {}
@@ -670,7 +680,6 @@ def clear_chat_history() -> None:
 def render_chat_history_panel() -> None:
     history = get_recent_chat_history(st.session_state.chat_history, max_messages=8)
     if not history:
-        st.caption("Conversation memory is empty right now.")
         return
 
     with st.expander("Recent conversation memory", expanded=False):
@@ -865,41 +874,52 @@ def render_scenario_planner(summary: dict) -> None:
 
 
 def render_dashboard(summary: dict, context) -> None:
-    st.title("Client Dashboard")
-    st.caption("Review household cash flow, account structure, portfolio positioning, and the supporting case data behind the advisory workspace.")
+    st.title("Dashboard")
+    st.caption("A clean snapshot of the 2025 demo household: cash flow, account position, portfolio mix, and planning priorities.")
 
-    dashboard_cards = st.columns(3)
+    account_overview = summary["account_overview"]
+    portfolio_overview = summary["portfolio_overview"]
+    latest_month = portfolio_overview.get("latest_month", {}) or {}
+    dashboard_cards = st.columns(4)
     with dashboard_cards[0]:
         render_kpi_card(
             "Net Worth",
-            f"{summary['account_overview']['net_worth']:,.2f}",
-            "Household assets less liabilities.",
+            f"${account_overview['net_worth']:,.0f}",
+            "Assets less credit-card liability.",
         )
     with dashboard_cards[1]:
         render_kpi_card(
-            "Liquid Assets",
-            f"{summary['account_overview']['liquid_assets']:,.2f}",
-            "Cash and short-term reserves available now.",
+            "Available Cash",
+            f"${account_overview['available_cash']:,.0f}",
+            "Cash available across chequing, savings, and registered accounts.",
         )
     with dashboard_cards[2]:
         render_kpi_card(
-            "Monthly Return",
-            f"{summary['portfolio_overview']['latest_month'].get('monthly_return_pct', 0):+.2f}%",
-            "Latest recorded household portfolio return.",
+            "Portfolio Value",
+            f"${portfolio_overview['total_market_value']:,.0f}",
+            "ETF holdings across FHSA, TFSA, and RRSP.",
+        )
+    with dashboard_cards[3]:
+        render_kpi_card(
+            "Latest Return",
+            f"{latest_month.get('monthly_return_pct', 0):+.2f}%",
+            f"Recorded for {latest_month.get('month', 'latest month')}.",
         )
 
-    overview_tab, market_tab, profile_tab, data_tab = st.tabs(["Overview", "Market Snapshot", "Client Profile", "Data Explorer"])
+    overview_tab, accounts_tab, portfolio_tab, profile_tab, data_tab = st.tabs(
+        ["Overview", "Accounts", "Portfolio", "Client Profile", "Data Explorer"]
+    )
 
     with overview_tab:
         monthly_df = pd.DataFrame(summary["monthly_spending"])
         if not monthly_df.empty:
             monthly_df["period"] = monthly_df["year"].astype(int).astype(str) + "-" + monthly_df["month"].astype(int).astype(str).str.zfill(2)
-            st.subheader("Monthly Spending Trend")
+            st.subheader("Cash Outflow Trend")
             trend_chart = (
                 alt.Chart(monthly_df)
-                .mark_area(line={"color": "#0f766e"}, color=alt.Gradient(
+                .mark_area(line={"color": "#2563eb"}, color=alt.Gradient(
                     gradient="linear",
-                    stops=[alt.GradientStop(color="#99f6e4", offset=0), alt.GradientStop(color="#ffffff", offset=1)],
+                    stops=[alt.GradientStop(color="#bfdbfe", offset=0), alt.GradientStop(color="#ffffff", offset=1)],
                     x1=1,
                     x2=1,
                     y1=1,
@@ -907,57 +927,88 @@ def render_dashboard(summary: dict, context) -> None:
                 ))
                 .encode(
                     x=alt.X("period:N", sort=None, title="Month"),
-                    y=alt.Y("amount:Q", title="Monthly spending"),
+                    y=alt.Y("amount:Q", title="Cash outflow"),
                     tooltip=["period", alt.Tooltip("amount:Q", format=",.2f")],
                 )
-                .properties(height=300)
+                .properties(height=260)
             )
             st.altair_chart(trend_chart, use_container_width=True)
 
-        top_spending_df = pd.DataFrame(
-            {
-                "category": list(summary["top_spending_categories"].keys()),
-                "amount": list(summary["top_spending_categories"].values()),
-            }
-        )
-        if not top_spending_df.empty:
+        left, right = st.columns([1.2, 1])
+        top_spending_df = pd.DataFrame({
+            "category": list(summary["top_spending_categories"].keys()),
+            "amount": list(summary["top_spending_categories"].values()),
+        })
+        with left:
             st.subheader("Top Spending Categories")
             spending_chart = (
                 alt.Chart(top_spending_df)
-                .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6, color="#f97316")
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color="#0f766e")
                 .encode(
                     x=alt.X("category:N", sort="-y", title="Category"),
                     y=alt.Y("amount:Q", title="Amount"),
                     tooltip=["category", alt.Tooltip("amount:Q", format=",.2f")],
                 )
-                .properties(height=300)
+                .properties(height=260)
             )
             st.altair_chart(spending_chart, use_container_width=True)
+        with right:
+            st.subheader("Planning Priorities")
+            for card in build_recommendation_cards(summary)[:3]:
+                st.markdown(
+                    safe_financial_markdown(
+                        f"**{card['category']}** - {card['display_priority']}\n\n{card['why_now']}"
+                    )
+                )
 
-        st.subheader("Recommendation Snapshot")
-        snapshot_cards = [
-            f"{card['product_name']} - {card['display_priority']}"
-            for card in build_recommendation_cards(summary)[:3]
-        ]
-        for item in snapshot_cards:
-            st.write(safe_financial_markdown(f"- {item}"))
-
+    with accounts_tab:
         st.subheader("Account Snapshot")
-        account_preview = pd.DataFrame(summary["account_overview"]["accounts"][:5])[["account_name", "account_type", "balance", "goal"]]
+        account_preview = pd.DataFrame(account_overview["accounts"])[
+            ["account_name", "account_type", "balance", "available_cash", "goal"]
+        ].copy()
+        account_preview["balance"] = account_preview["balance"].map(lambda value: f"${value:,.2f}")
+        account_preview["available_cash"] = account_preview["available_cash"].map(lambda value: f"${value:,.2f}")
         st.dataframe(account_preview, width="stretch", hide_index=True)
 
-        st.subheader("Portfolio Snapshot")
-        holdings_preview = pd.DataFrame(summary["portfolio_overview"]["top_holdings"][:5])[["symbol", "holding_name", "asset_class", "market_value", "one_month_return_pct"]]
+    with portfolio_tab:
+        st.subheader("Portfolio Mix")
+        mix_cols = st.columns(2)
+        asset_mix_df = pd.DataFrame({
+            "asset_class": list(portfolio_overview["asset_mix"].keys()),
+            "market_value": list(portfolio_overview["asset_mix"].values()),
+        })
+        region_mix_df = pd.DataFrame({
+            "region": list(portfolio_overview["region_mix"].keys()),
+            "market_value": list(portfolio_overview["region_mix"].values()),
+        })
+        with mix_cols[0]:
+            st.altair_chart(
+                alt.Chart(asset_mix_df)
+                .mark_arc(innerRadius=45)
+                .encode(theta="market_value:Q", color="asset_class:N", tooltip=["asset_class", alt.Tooltip("market_value:Q", format=",.2f")])
+                .properties(height=260),
+                use_container_width=True,
+            )
+        with mix_cols[1]:
+            st.altair_chart(
+                alt.Chart(region_mix_df)
+                .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color="#7c3aed")
+                .encode(x=alt.X("region:N", sort="-y", title="Region"), y=alt.Y("market_value:Q", title="Market value"), tooltip=["region", alt.Tooltip("market_value:Q", format=",.2f")])
+                .properties(height=260),
+                use_container_width=True,
+            )
+        st.subheader("Top Holdings")
+        holdings_preview = pd.DataFrame(portfolio_overview["top_holdings"])[
+            ["symbol", "holding_name", "asset_class", "market_value", "one_month_return_pct"]
+        ].copy()
+        holdings_preview["market_value"] = holdings_preview["market_value"].map(lambda value: f"${value:,.2f}")
+        holdings_preview["one_month_return_pct"] = holdings_preview["one_month_return_pct"].map(lambda value: f"{value:+.2f}%")
         st.dataframe(holdings_preview, width="stretch", hide_index=True)
-
-    with market_tab:
-        render_market_snapshot_tab()
 
     with profile_tab:
         profile = summary["user_profile"]
         left, right = st.columns(2)
         with left:
-            st.write(safe_financial_markdown(f"**Name:** {profile['name']}"))
             st.write(safe_financial_markdown(f"**Age:** {profile['age']}"))
             st.write(safe_financial_markdown(f"**Occupation:** {profile['occupation']}"))
             st.write(safe_financial_markdown(f"**Annual Income:** {profile['annual_income']}"))
@@ -970,45 +1021,65 @@ def render_dashboard(summary: dict, context) -> None:
             st.write(safe_financial_markdown(f"**Priority Rule:** {summary['priority_reason']}"))
 
     with data_tab:
-        st.subheader("Transactions")
-        st.dataframe(context.transactions, width="stretch")
-        st.subheader("Monthly Summary")
-        st.dataframe(context.monthly, width="stretch")
-        st.subheader("Account Summary")
-        st.dataframe(context.account_summary, width="stretch")
-        st.subheader("Portfolio Holdings")
-        st.dataframe(context.portfolio_holdings, width="stretch")
-        st.subheader("Portfolio Performance")
-        st.dataframe(context.portfolio_performance, width="stretch")
-        st.subheader("User Profile")
-        st.dataframe(context.user_info, width="stretch")
-        if context.product_catalog is not None:
-            st.subheader("Product Catalog")
-            st.dataframe(context.product_catalog, width="stretch")
+        st.subheader("Loaded Demo Data")
+        st.caption("Curated tables used by the copilot. Values are mock data for the 2025 demo household.")
+        data_choice = st.selectbox(
+            "Dataset",
+            [
+                "Transactions",
+                "Monthly cash flow",
+                "Accounts",
+                "Portfolio holdings",
+                "Portfolio performance",
+                "Product catalog",
+            ],
+            label_visibility="collapsed",
+        )
+        if data_choice == "Transactions":
+            transaction_preview = context.transactions.copy()
+            transaction_preview["date"] = transaction_preview["date"].dt.strftime("%Y-%m-%d")
+            st.dataframe(
+                transaction_preview[["date", "description", "amount", "type", "category"]],
+                width="stretch",
+                hide_index=True,
+            )
+        elif data_choice == "Monthly cash flow":
+            st.dataframe(context.monthly, width="stretch", hide_index=True)
+        elif data_choice == "Accounts":
+            st.dataframe(context.account_summary, width="stretch", hide_index=True)
+        elif data_choice == "Portfolio holdings":
+            st.dataframe(context.portfolio_holdings, width="stretch", hide_index=True)
+        elif data_choice == "Portfolio performance":
+            st.dataframe(context.portfolio_performance, width="stretch", hide_index=True)
+        elif context.product_catalog is not None:
+            st.dataframe(context.product_catalog, width="stretch", hide_index=True)
 
 
 def render_copilot(has_openai_key: bool, developer_mode: bool = False) -> None:
     st.title("Canadian Wealth Insights")
-    st.caption("A client-facing advisory workspace for household cash flow, account strategy, portfolio explanation, and Canada-first financial guidance.")
+    st.caption("An AI financial advisory workspace for cash flow, accounts, portfolio, and Canadian planning rules.")
 
     st.markdown("#### Try a sample question")
     sample_cols = st.columns(2)
     sample_questions = [
-        "Show my household account summary.",
-        "Explain my current portfolio allocation.",
-        "Why did my returns change this month?",
-        "Based on my profile, should I focus on FHSA, TFSA, or RRSP?",
+        ("Account summary", "Show my household account summary."),
+        ("Portfolio allocation", "Explain my current portfolio allocation."),
+        ("Monthly performance", "Why did my returns change this month?"),
+        ("FHSA vs TFSA vs RRSP", "Based on my profile, should I focus on FHSA, TFSA, or RRSP?"),
     ]
-    for index, question in enumerate(sample_questions):
+    for index, (label, question) in enumerate(sample_questions):
         with sample_cols[index % 2]:
-            st.button(question, key=f"sample_{index}", use_container_width=True, on_click=queue_sample_question, args=(question,))
+            st.button(label, key=f"sample_{index}", use_container_width=True, on_click=queue_sample_question, args=(question,))
 
     st.subheader("Chat")
-    chat_control_cols = st.columns([1, 5])
-    with chat_control_cols[0]:
-        st.button("Clear chat", key="clear_chat_button", on_click=clear_chat_history, use_container_width=True)
-    with chat_control_cols[1]:
-        render_chat_history_panel()
+    if st.session_state.chat_history:
+        chat_control_cols = st.columns([1, 5])
+        with chat_control_cols[0]:
+            st.button("Clear chat", key="clear_chat_button", on_click=clear_chat_history, use_container_width=True)
+        with chat_control_cols[1]:
+            render_chat_history_panel()
+    else:
+        st.caption("Choose a sample question or ask your own finance question below.")
     for raw_message in st.session_state.chat_history:
         message = normalize_message(raw_message)
         with st.chat_message(message["role"]):
@@ -1029,39 +1100,58 @@ def render_copilot(has_openai_key: bool, developer_mode: bool = False) -> None:
 
 context = load_financial_context()
 summary = build_summary(context)
+show_developer_controls = os.getenv("SHOW_DEVELOPER_CONTROLS", "").strip().lower() in {"1", "true", "yes"}
+has_openai_key = openai_runtime_available()
+rag_status = get_rag_index_status()
 
 with st.sidebar:
-    page = st.radio("Workspace", ["Copilot", "Scenario Planner", "Dashboard"], label_visibility="visible")
+    pages = ["Copilot", "Dashboard"]
+    if show_developer_controls:
+        pages.append("Scenario Planner")
+    page = st.radio("Workspace", pages, label_visibility="visible")
     st.header("Run Mode")
-    has_openai_key = openai_runtime_available()
-    rag_status = get_rag_index_status()
     mode_label = "Hybrid mode" if has_openai_key else "OpenAI unavailable"
     st.write(f"- Current mode: `{mode_label}`")
-    if os.getenv("OPENAI_API_KEY") and not has_openai_key:
-        st.write("- OpenAI key found, but the OpenAI Python package is not available in this runtime.")
     if has_openai_key:
         st.write(f"- Model: `{os.getenv('OPENAI_MODEL', 'gpt-5.4')}`")
-    st.session_state.developer_mode = st.checkbox(
-        "Developer mode",
-        value=st.session_state.developer_mode,
-        help="Show routing, retrieved sources, and LLM request details.",
+    st.write(f"- RAG index: `{rag_status['status']}`")
+    st.markdown(
+        f"""
+        <div class="demo-note">
+            Demo data: 2025 mock household profile<br>
+            Window: {escape(summary.get('sample_window', 'loaded sample'))}
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    if st.session_state.developer_mode:
-        st.caption("System details are visible for learning and debugging.")
-        if ENV_FILE_USED:
-            st.write(f"- Local .env file: `{ENV_FILE_USED}`")
 
-    with st.expander("Data Layers", expanded=False):
-        st.write("- Client case data: household transactions, accounts, holdings, and performance files in `artifacts_canada/`")
-        st.write("- Reference knowledge: Canadian rules, planning guidance, and market commentary in `reference_canada/`")
-        st.write("- Retrieval layer: finance reference index for retrieval-backed explanations")
-        st.write("- Market layer: curated watchlist plus an optional live Yahoo Finance ETF snapshot")
-        st.write("- Decision engine: deterministic scoring for product-priority questions")
-        st.write(f"- RAG index status: `{rag_status['status']}`")
-        if rag_status.get("chunk_count"):
-            st.write(f"- RAG chunks: `{rag_status['chunk_count']}`")
-        if rag_status.get("embedding_provider"):
-            st.write(f"- Retrieval backend: `{rag_status['embedding_provider']}`")
+    if show_developer_controls:
+        st.header("Developer")
+        if os.getenv("OPENAI_API_KEY") and not has_openai_key:
+            st.write("- OpenAI key found, but the OpenAI Python package is not available in this runtime.")
+        st.session_state.developer_mode = st.checkbox(
+            "Developer mode",
+            value=st.session_state.developer_mode,
+            help="Show routing, retrieved sources, and LLM request details.",
+        )
+        if st.session_state.developer_mode:
+            st.caption("System details are visible for learning and debugging.")
+            if ENV_FILE_USED:
+                st.write(f"- Local .env file: `{ENV_FILE_USED}`")
+
+            with st.expander("Data Layers", expanded=False):
+                st.write("- Client case data: household transactions, accounts, holdings, and performance files in `artifacts_canada/`")
+                st.write("- Reference knowledge: Canadian rules, planning guidance, and market commentary in `reference_canada/`")
+                st.write("- Retrieval layer: finance reference index for retrieval-backed explanations")
+                st.write("- Market layer: curated watchlist plus an optional live Yahoo Finance ETF snapshot")
+                st.write("- Decision engine: deterministic scoring for product-priority questions")
+                st.write(f"- RAG index status: `{rag_status['status']}`")
+                if rag_status.get("chunk_count"):
+                    st.write(f"- RAG chunks: `{rag_status['chunk_count']}`")
+                if rag_status.get("embedding_provider"):
+                    st.write(f"- Retrieval backend: `{rag_status['embedding_provider']}`")
+    else:
+        st.session_state.developer_mode = False
 
 if not has_openai_key:
     st.error(

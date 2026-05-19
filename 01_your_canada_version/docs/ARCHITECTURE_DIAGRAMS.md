@@ -20,7 +20,7 @@ Focus:
 
 - major layers
 - main data sources
-- intent parser and capability planner
+- LLM-first intent/tool planner and capability planner
 - orchestration path
 - where LLM, RAG, tools, and compliance fit
 
@@ -35,7 +35,7 @@ Focus:
 - request lifecycle
 - validation order
 - when data is loaded
-- when intent parsing, planning, tools, generation, and audit happen
+- when conversation resolution, intent/tool planning, tools, evidence validation, generation, and audit happen
 
 This diagram uses a fixed SVG layout so it stays readable in VS Code preview.
 
@@ -51,7 +51,7 @@ Focus:
 
 - step-by-step request journey
 - access control
-- intent parsing and capability planning
+- intent/tool planning and capability planning
 - optional RAG and tool usage
 - compliance and audit
 
@@ -90,7 +90,7 @@ Focus:
 
 - node order
 - clean workflow design
-- separation between intent parsing, planning, tools, validation, generation, and compliance
+- separation between intent/tool planning, deterministic tools, evidence validation, generation, and compliance
 
 ![LangGraph Workflow Diagram](./assets/langgraph_workflow_diagram.svg)
 

@@ -69,3 +69,75 @@ date,description,amount,type,category
 24-06-2025,Porter Airlines Montreal trip,520.00,DR,Travel
 26-06-2025,Netflix and Spotify,27.99,DR,Subscription
 29-06-2025,Scotiabank Visa payment,438.90,DR,Credit Card Payment
+15-07-2025,Payroll/Northern Loop Tech bi-weekly pay,3450,CR,Salary
+31-07-2025,Payroll/Northern Loop Tech bi-weekly pay,3475,CR,Salary
+31-07-2025,EQ Bank savings interest,19.10,CR,Interest
+01-07-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+07-07-2025,Metro Front Street,204.88,DR,Groceries
+10-07-2025,TTC monthly pass,156.00,DR,Transportation
+16-07-2025,Toronto Hydro,92.40,DR,Utilities
+18-07-2025,Bell Canada mobile and internet,143.65,DR,Telecom
+21-07-2025,EQ Bank FHSA contribution,800.00,DR,FHSA Contribution
+23-07-2025,Wealthsimple TFSA contribution,400.00,DR,TFSA Contribution
+26-07-2025,Patio dinner and coffee,72.50,DR,Dining
+29-07-2025,Scotiabank Visa payment,455.20,DR,Credit Card Payment
+15-08-2025,Payroll/Northern Loop Tech bi-weekly pay,3460,CR,Salary
+29-08-2025,Payroll/Northern Loop Tech bi-weekly pay,3485,CR,Salary
+01-08-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+06-08-2025,Loblaws Queen Quay,215.34,DR,Groceries
+11-08-2025,TTC monthly pass,156.00,DR,Transportation
+15-08-2025,Toronto Hydro,89.55,DR,Utilities
+18-08-2025,Rogers mobile and internet,143.80,DR,Telecom
+20-08-2025,Questrade RRSP contribution,400.00,DR,RRSP Contribution
+22-08-2025,Air Canada Vancouver weekend,680.00,DR,Travel
+25-08-2025,Shoppers Drug Mart,52.10,DR,Healthcare
+29-08-2025,Scotiabank Visa payment,512.44,DR,Credit Card Payment
+15-09-2025,Payroll/Northern Loop Tech bi-weekly pay,3470,CR,Salary
+30-09-2025,Payroll/Northern Loop Tech bi-weekly pay,3490,CR,Salary
+30-09-2025,EQ Bank savings interest,20.25,CR,Interest
+01-09-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+08-09-2025,No Frills Spadina,197.45,DR,Groceries
+12-09-2025,TTC monthly pass,156.00,DR,Transportation
+16-09-2025,Enbridge Gas,78.92,DR,Utilities
+18-09-2025,Bell Canada mobile and internet,143.95,DR,Telecom
+22-09-2025,EQ Bank FHSA contribution,700.00,DR,FHSA Contribution
+24-09-2025,Wealthsimple TFSA contribution,500.00,DR,TFSA Contribution
+26-09-2025,Home Depot small repairs,180.00,DR,Home Maintenance
+28-09-2025,Netflix and Spotify,29.99,DR,Subscription
+29-09-2025,Scotiabank Visa payment,468.70,DR,Credit Card Payment
+15-10-2025,Payroll/Northern Loop Tech bi-weekly pay,3480,CR,Salary
+31-10-2025,Payroll/Northern Loop Tech bi-weekly pay,3500,CR,Salary
+01-10-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+06-10-2025,Costco Etobicoke,209.18,DR,Groceries
+10-10-2025,TTC monthly pass,156.00,DR,Transportation
+16-10-2025,Toronto Hydro,84.11,DR,Utilities
+18-10-2025,Rogers mobile and internet,144.05,DR,Telecom
+21-10-2025,Questrade RRSP contribution,400.00,DR,RRSP Contribution
+23-10-2025,EQ Bank emergency fund transfer,600.00,DR,Savings Contribution
+26-10-2025,Cineplex and restaurant night,116.40,DR,Entertainment
+29-10-2025,Scotiabank Visa payment,490.35,DR,Credit Card Payment
+14-11-2025,Payroll/Northern Loop Tech bi-weekly pay,3490,CR,Salary
+28-11-2025,Payroll/Northern Loop Tech bi-weekly pay,3510,CR,Salary
+01-11-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+07-11-2025,Metro Front Street,218.72,DR,Groceries
+12-11-2025,TTC monthly pass,156.00,DR,Transportation
+16-11-2025,Enbridge Gas,91.36,DR,Utilities
+18-11-2025,Bell Canada mobile and internet,144.22,DR,Telecom
+21-11-2025,EQ Bank FHSA contribution,800.00,DR,FHSA Contribution
+24-11-2025,Wealthsimple TFSA contribution,500.00,DR,TFSA Contribution
+26-11-2025,GoodLife Fitness,64.99,DR,Fitness
+29-11-2025,Scotiabank Visa payment,476.15,DR,Credit Card Payment
+12-12-2025,Payroll/Northern Loop Tech bi-weekly pay,3500,CR,Salary
+26-12-2025,Payroll/Northern Loop Tech bi-weekly pay,3520,CR,Salary
+31-12-2025,EQ Bank savings interest,21.05,CR,Interest
+31-12-2025,Scotiabank Visa cashback,26.35,CR,Cashback/Refund
+01-12-2025,Rent/Harbourfront Rentals Toronto,2350,DR,Rent
+05-12-2025,Loblaws Queen Quay,236.80,DR,Groceries
+10-12-2025,TTC monthly pass,156.00,DR,Transportation
+15-12-2025,Toronto Hydro,96.44,DR,Utilities
+18-12-2025,Rogers mobile and internet,144.35,DR,Telecom
+20-12-2025,EQ Bank FHSA contribution,900.00,DR,FHSA Contribution
+22-12-2025,Wealthsimple TFSA contribution,600.00,DR,TFSA Contribution
+23-12-2025,Holiday gifts and dining,420.00,DR,Entertainment
+27-12-2025,Porter Airlines holiday travel,760.00,DR,Travel
+29-12-2025,Scotiabank Visa payment,545.60,DR,Credit Card Payment

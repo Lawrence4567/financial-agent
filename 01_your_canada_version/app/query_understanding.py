@@ -27,6 +27,15 @@ SPENDING_ROUTE_TERMS = {
     "payment",
     "payments",
     "total",
+    "花",
+    "花了",
+    "花费",
+    "消费",
+    "支出",
+    "多少钱",
+    "这个月",
+    "本月",
+    "最近",
 }
 
 NEGATION_HINTS = {
@@ -96,6 +105,8 @@ def normalize_query_text(query: str) -> str:
 
     if any(_contains_alias(query_lower, term) for term in ["spent", "pay", "paid", "cost", "costs", "payment", "payments"]):
         expansions.extend(["spend", "spending", "expense"])
+    if any(term in query_lower for term in ["花", "花了", "花费", "消费", "支出", "多少钱"]):
+        expansions.extend(["spend", "spending", "expense", "total"])
     if any(_contains_alias(query_lower, term) for term in ["habit", "habits"]):
         if any(_contains_alias(query_lower, term) for term in ["cash", "money", "budget", "spending"]):
             expansions.extend(["spending", "cash flow", "budget"])

@@ -12,8 +12,8 @@ For detailed architecture, read `SYSTEM_ARCHITECTURE.md`.
 Runnable application code:
 
 - `app_local.py`: Streamlit UI and page layout
-- `local_financial_qa.py`: main controller for intent parsing, tools, generation, compliance, and audit logging
-- `intent_engine.py`: structured intent parsing and capability planning
+- `local_financial_qa.py`: main controller for conversation resolution, intent/tool planning, evidence validation, generation, compliance, and audit logging
+- `intent_engine.py`: LLM-first structured intent and tool planning with rules fallback
 - `data_sources.py`: data loading and market snapshot access
 - `demo_governance.py`: internal request records, access checks, guardrails, and audit logging
 - `analytics_tools.py`: portfolio attribution, exposure, and volatility analysis

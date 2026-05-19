@@ -5,7 +5,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from conversation_memory import format_chat_history_as_text, looks_like_follow_up_query
+from conversation_memory import format_chat_history_as_text, looks_like_follow_up_query, resolve_follow_up_query
 from query_router import (
     QueryRouteDecision,
     detect_safety_compliance_issue,
@@ -69,6 +69,7 @@ class IntentSchema(BaseModel):
     response_style: ResponseStyleLiteral = "explanatory"
     confidence: ConfidenceLiteral = "medium"
     fallback_reason: Optional[str] = None
+    planner_source: str = "rules"
 
 
 class CapabilityPlan(BaseModel):
@@ -325,6 +326,10 @@ def _intent_from_route_decision(
 def apply_discoverable_intent_overrides(intent: IntentSchema, query: str) -> IntentSchema:
     query_lower = normalize_query_text(query)
     targets = _extract_target_entities(query)
+    has_registered_account_priority_signal = (
+        all(account in query_lower for account in ["fhsa", "tfsa", "rrsp"])
+        and any(term in query_lower for term in ["should", "focus", "prioritize", "prioritise", "first", "profile", "goal"])
+    )
     if detect_safety_compliance_issue(query) is not None:
         return IntentSchema(
             domain="safety",
@@ -333,6 +338,18 @@ def apply_discoverable_intent_overrides(intent: IntentSchema, query: str) -> Int
             polarity="negative",
             confidence="high",
             fallback_reason=intent.fallback_reason,
+        )
+    if has_registered_account_priority_signal:
+        return intent.model_copy(
+            update={
+                "domain": "recommendation",
+                "operator": "prioritize",
+                "target_entities": targets or ["FHSA", "TFSA", "RRSP"],
+                "needs_rag": True,
+                "needs_recommendation": True,
+                "needs_market_data": False,
+                "needs_portfolio_tools": False,
+            }
         )
     if is_fhsa_tfsa_comparison_query(query):
         return intent.model_copy(
@@ -428,12 +445,17 @@ def apply_discoverable_intent_overrides(intent: IntentSchema, query: str) -> Int
     return intent
 
 
-def build_rules_fallback_intent(query: str, use_llm: bool, chat_history: Optional[List[dict]] = None) -> IntentSchema:
+def build_rules_fallback_intent(
+    query: str,
+    use_llm: bool,
+    chat_history: Optional[List[dict]] = None,
+    fallback_reason: Optional[str] = None,
+) -> IntentSchema:
     decision = route_query(query, use_llm=use_llm, chat_history=chat_history)
     intent = _intent_from_route_decision(
         query,
         decision,
-        fallback_reason=f"Rules fallback from route '{decision.route}'.",
+        fallback_reason=fallback_reason or f"Rules fallback from route '{decision.route}'.",
     )
     query_lower = normalize_query_text(query)
     has_rule_signal = any(term in query_lower for term in ["rule", "rules", "eligibility", "contribution", "withdrawal", "tax"])
@@ -453,36 +475,49 @@ def build_rules_fallback_intent(query: str, use_llm: bool, chat_history: Optiona
         intent = intent.model_copy(update={"needs_portfolio_tools": True})
     if has_spending_signal and has_recommendation_signal and intent.operator not in {"deprioritize", "compare"}:
         intent = intent.model_copy(update={"operator": "prioritize"})
-    return apply_discoverable_intent_overrides(intent, query)
+    return apply_discoverable_intent_overrides(intent, query).model_copy(update={"planner_source": "rules"})
 
 
 def parse_intent(query: str, use_llm: bool = True, chat_history: Optional[List[dict]] = None) -> IntentSchema:
     backend = os.getenv("INTENT_BACKEND", "llm").strip().lower()
+    resolved = resolve_follow_up_query(query, chat_history)
+    planning_query = resolved.get("effective_query", query) or query
+
     if backend != "llm" or not use_llm:
-        raise RuntimeError(
-            "OpenAI intent parsing is mandatory. Set INTENT_BACKEND=llm and run the app with OpenAI enabled."
+        return build_rules_fallback_intent(
+            planning_query,
+            use_llm=False,
+            chat_history=chat_history,
+            fallback_reason="Rules planner used because LLM planning was disabled or INTENT_BACKEND is not llm.",
         )
 
     client = _get_openai_client()
     if client is None:
-        raise RuntimeError(
-            "OpenAI intent parsing is mandatory, but OPENAI_API_KEY is missing or the openai package is not installed."
+        return build_rules_fallback_intent(
+            planning_query,
+            use_llm=False,
+            chat_history=chat_history,
+            fallback_reason="Rules planner used because OPENAI_API_KEY is missing or the openai package is not installed.",
         )
 
     history_text = format_chat_history_as_text(chat_history, max_messages=6, include_route=True, max_chars=900)
-    follow_up_note = "This looks like a short follow-up query." if looks_like_follow_up_query(query) else "This looks like a standalone query."
+    follow_up_note = "This looks like a short follow-up query." if looks_like_follow_up_query(query) or resolved.get("is_follow_up") else "This looks like a standalone query."
     model = os.getenv("OPENAI_MODEL", "gpt-5.4")
     input_text = (
         f"Recent conversation:\n{history_text or 'No recent conversation.'}\n\n"
-        f"Current question:\n{query}\n\n"
+        f"Original question:\n{query}\n\n"
+        f"Planner question:\n{planning_query}\n\n"
         f"Note:\n{follow_up_note}"
     )
     instructions = (
-        "You are an intent parser for a Canadian financial copilot. "
-        "Return only a structured intent schema. "
+        "You are an Intent & Tool Planner for a Canadian financial copilot. "
+        "Return only the structured intent schema that downstream deterministic tools can use. "
+        "The user may ask in English, Chinese, or mixed language; understand the meaning across languages and still output the schema using the allowed English enum values. "
         "Infer whether the user is asking to include, exclude, compare, prioritize, deprioritize, explain, summarize, or validate. "
         "Negative phrases like 'not recommend', 'avoid', 'not spend on', 'excluding', and 'except' should map to negative polarity and exclude/deprioritize operators when appropriate. "
         "If the question mixes profile guidance with rules, set needs_recommendation and needs_rag to true. "
+        "Set needs_rag only when reference rules, registered-account details, planning guidance, market commentary, or other retrieved knowledge is needed. "
+        "Do not set needs_rag for pure account balances, transaction totals, or portfolio allocation summaries. "
         "If the question needs current ETF snapshot data, set needs_market_data to true. "
         "If the question asks why returns changed, set domain=performance and needs_portfolio_tools=true. "
         "Use only the allowed enum values. Keep confidence realistic."
@@ -495,11 +530,50 @@ def parse_intent(query: str, use_llm: bool = True, chat_history: Optional[List[d
             text_format=IntentSchema,
         )
         parsed = response.output_parsed
-        if parsed.fallback_reason:
-            return apply_discoverable_intent_overrides(parsed, query)
-        return apply_discoverable_intent_overrides(parsed.model_copy(update={"fallback_reason": None}), query)
+        planner_intent = parsed if parsed.fallback_reason else parsed.model_copy(update={"fallback_reason": None})
+        planner_intent = planner_intent.model_copy(update={"planner_source": "llm"})
+        return apply_discoverable_intent_overrides(planner_intent, planning_query)
     except Exception as exc:
-        raise RuntimeError(f"OpenAI intent parsing failed, so the request was stopped: {exc}") from exc
+        return build_rules_fallback_intent(
+            planning_query,
+            use_llm=False,
+            chat_history=chat_history,
+            fallback_reason=f"Rules planner used because LLM planning failed: {exc}",
+        )
+
+
+def _query_has_reference_signal(query: str) -> bool:
+    query_lower = normalize_query_text(query)
+    reference_terms = [
+        "rule",
+        "rules",
+        "eligibility",
+        "eligible",
+        "contribution",
+        "withdrawal",
+        "tax",
+        "fhsa",
+        "tfsa",
+        "rrsp",
+        "registered account",
+        "compare",
+        "difference",
+        "vs",
+        "versus",
+        "market commentary",
+        "planning guidance",
+    ]
+    return any(term in query_lower for term in reference_terms)
+
+
+def should_route_to_rag(intent: IntentSchema, query: str) -> bool:
+    if intent.domain == "knowledge":
+        return True
+    if intent.domain == "performance":
+        return intent.needs_rag
+    if intent.domain in {"spending", "account", "portfolio"} and not _query_has_reference_signal(query):
+        return False
+    return intent.needs_rag and _query_has_reference_signal(query)
 
 
 def plan_capabilities(intent: IntentSchema, query: str) -> CapabilityPlan:
@@ -521,7 +595,7 @@ def plan_capabilities(intent: IntentSchema, query: str) -> CapabilityPlan:
         tool_calls.append("portfolio_performance_toolkit")
     if intent.domain == "recommendation" or intent.needs_recommendation:
         tool_calls.append("recommendation_engine")
-    if intent.needs_rag or intent.domain == "knowledge":
+    if should_route_to_rag(intent, query):
         tool_calls.append("reference_retrieval")
     if intent.needs_market_data or intent.domain == "market":
         tool_calls.append("market_snapshot")
@@ -542,14 +616,18 @@ def plan_capabilities(intent: IntentSchema, query: str) -> CapabilityPlan:
             prefers_llm=False,
         )
 
-    if "spending_tool" in unique_tool_calls and "recommendation_engine" in unique_tool_calls and not intent.needs_rag and not intent.needs_market_data:
+    if "recommendation_engine" in unique_tool_calls and "reference_retrieval" in unique_tool_calls and "market_snapshot" in unique_tool_calls:
+        ui_route_label = "Hybrid profile + RAG + market"
+        legacy_route = "hybrid_profile_rag_market"
+        route_reason = "The intent needs profile guidance, retrieved rules, and market context."
+    elif "recommendation_engine" in unique_tool_calls and "reference_retrieval" in unique_tool_calls:
+        ui_route_label = "Hybrid recommendation + rules"
+        legacy_route = "hybrid_rule_advice"
+        route_reason = "The intent needs both recommendation logic and retrieved rule context."
+    elif "spending_tool" in unique_tool_calls and "recommendation_engine" in unique_tool_calls and not intent.needs_rag and not intent.needs_market_data:
         ui_route_label = "Hybrid spending + recommendation"
         legacy_route = "hybrid_spending_recommendation"
         route_reason = "The intent mixes spending facts with product guidance, so the workflow should combine both."
-    elif "spending_tool" in unique_tool_calls and "recommendation_engine" in unique_tool_calls and intent.needs_rag:
-        ui_route_label = "Hybrid recommendation + rules"
-        legacy_route = "hybrid_rule_advice"
-        route_reason = "The intent mixes spending context, recommendation logic, and retrieved rules."
     elif intent.domain == "recommendation" and intent.needs_rag and intent.needs_market_data:
         ui_route_label = "Hybrid profile + RAG + market"
         legacy_route = "hybrid_profile_rag_market"

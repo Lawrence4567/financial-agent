@@ -1,8 +1,8 @@
 account_id,account_name,account_type,institution,balance,available_cash,contribution_ytd,goal,liquidity_tier,notes
-AC001,Everyday Chequing,Chequing,Scotiabank,4825.37,4825.37,0,Monthly bills and payroll,Immediate,Primary operating account for salary deposits and bill payments
-AC002,Emergency Fund Savings,High-Interest Savings,EQ Bank,16840.12,16840.12,600,Emergency reserve,Immediate,Holds roughly four months of core living costs
-AC003,First Home Savings Account,FHSA,EQ Bank,13240.55,1240.55,1800,Condo down payment,Medium,Dedicated first-home account with cash and short-duration ETF exposure
-AC004,Tax-Free Savings Account,TFSA,Wealthsimple,21485.44,1685.44,1200,Flexible long-term investing,Medium,Core growth sleeve for diversified ETFs
-AC005,Registered Retirement Savings Plan,RRSP,Questrade,18672.91,672.91,800,Retirement investing,Long-term,Retirement account funded through periodic contributions
-AC006,Travel and Lifestyle Savings,Non-Registered Savings,Tangerine,3920.18,3920.18,0,Short-term travel and large purchases,Short-term,Used for known discretionary goals
-LI001,Rewards Credit Card,Credit Card,Scotiabank,-1420.33,0,0,Monthly spending settlement,Immediate,Paid in full most months with routine rewards usage
+AC001,Everyday Chequing,Chequing,Scotiabank,5210.64,5210.64,0,Monthly bills and payroll,Immediate,Primary operating account for salary deposits and bill payments
+AC002,Emergency Fund Savings,High-Interest Savings,EQ Bank,18620.52,18620.52,1800,Emergency reserve,Immediate,Holds roughly four to five months of core living costs
+AC003,First Home Savings Account,FHSA,EQ Bank,16895.30,1695.30,5000,Condo down payment,Medium,Dedicated first-home account with cash and short-duration ETF exposure
+AC004,Tax-Free Savings Account,TFSA,Wealthsimple,24820.18,1820.18,3600,Flexible long-term investing,Medium,Core growth sleeve for diversified ETFs
+AC005,Registered Retirement Savings Plan,RRSP,Questrade,20510.77,710.77,2000,Retirement investing,Long-term,Retirement account funded through periodic contributions
+AC006,Travel and Lifestyle Savings,Non-Registered Savings,Tangerine,3545.42,3545.42,0,Short-term travel and large purchases,Short-term,Used for known discretionary goals
+LI001,Rewards Credit Card,Credit Card,Scotiabank,-1588.90,0,0,Monthly spending settlement,Immediate,Paid in full most months with routine rewards usage
